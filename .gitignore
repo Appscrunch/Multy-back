@@ -1,0 +1,7 @@
+cmd/cmd
+cmd/multy
+cmd/config.yml
+
+vendor/gopkg.in
+vendor/github.com
+
