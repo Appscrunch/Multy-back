@@ -1,6 +1,7 @@
-package client
+package store
 
-/*
+import "time"
+
 // User represents a single app user
 type User struct {
 	UserID  string   `bson:"userID"`  // User uqnique identifier
@@ -25,4 +26,4 @@ type Wallet struct {
 type Address struct {
 	AddressID string `bson:"addressID"`
 	Address   string `bson:"address"`
-}*/
+}

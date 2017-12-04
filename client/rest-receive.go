@@ -1,20 +1,10 @@
 package client
 
-import (
-	"io/ioutil"
-	"net/http"
-	"strconv"
-	"strings"
-
-	"github.com/Appscrunch/Multy-back/types"
-	"github.com/gin-gonic/gin"
-	"gopkg.in/mgo.v2/bson"
-)
-
 type Total struct {
 	Assets map[string]string `json:"displayWallet"` // name of wallet to ballance
 }
 
+/*
 func getaddresses(c *gin.Context, token string) map[int]DisplayWallet {
 	sel := bson.M{"devices.JWT": token}
 
@@ -73,3 +63,4 @@ func getadressbalance(c *gin.Context, addr string, chain int) int {
 	}
 
 }
+*/

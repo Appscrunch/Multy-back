@@ -9,6 +9,36 @@
 			"revisionTime": "2017-12-04T06:53:56Z"
 		},
 		{
+			"checksumSHA1": "ly15/Xpro2X8OLfVsU4kmjMSO/Y=",
+			"path": "github.com/Appscrunch/Multy-back/btc",
+			"revision": "07a6e709182615cadcf9b37b0ee5fd9ae7b950d6",
+			"revisionTime": "2017-12-04T09:52:00Z"
+		},
+		{
+			"checksumSHA1": "ke8cvc7D429N+SfdfHd200aqUcA=",
+			"path": "github.com/Appscrunch/Multy-back/client",
+			"revision": "07a6e709182615cadcf9b37b0ee5fd9ae7b950d6",
+			"revisionTime": "2017-12-04T09:52:00Z"
+		},
+		{
+			"checksumSHA1": "HWJQHpP2Z/Uv9KKLbugBGb8VKmM=",
+			"path": "github.com/Appscrunch/Multy-back/cmd",
+			"revision": "07a6e709182615cadcf9b37b0ee5fd9ae7b950d6",
+			"revisionTime": "2017-12-04T09:52:00Z"
+		},
+		{
+			"checksumSHA1": "hrcXA1WHVaADAu8IL/z8IMm7BEo=",
+			"path": "github.com/Appscrunch/Multy-back/store",
+			"revision": "07a6e709182615cadcf9b37b0ee5fd9ae7b950d6",
+			"revisionTime": "2017-12-04T09:52:00Z"
+		},
+		{
+			"checksumSHA1": "pZ9HdgrAw/sq+0mI0tYWMVCU5b0=",
+			"path": "github.com/Appscrunch/Multy-back/types",
+			"revision": "07a6e709182615cadcf9b37b0ee5fd9ae7b950d6",
+			"revisionTime": "2017-12-04T09:52:00Z"
+		},
+		{
 			"checksumSHA1": "lPcTak2cIrUzxysFsqkPiCGUo6w=",
 			"path": "github.com/btcsuite/btcd/btcec",
 			"revision": "2e60448ffcc6bf78332d1fe590260095f554dd78",

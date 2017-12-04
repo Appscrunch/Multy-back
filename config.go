@@ -17,10 +17,11 @@ type JWTConf struct {
 
 // Configuration is a struct with all service options
 type Configuration struct {
-	Name      string
-	Address   string
-	DataStore map[string]interface{}
-	JWTConfig *JWTConf
+	Name             string
+	Address          string
+	DataStore        map[string]interface{}
+	JWTConfig        *JWTConf
+	DataStoreAddress string
 }
 
 // GetConfig initializes configuration for multy backend

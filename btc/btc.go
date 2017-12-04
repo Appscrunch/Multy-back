@@ -1,7 +1,9 @@
 package btc
 
-func InitHandlers() error {
-	return nil
+import "github.com/btcsuite/btcd/rpcclient"
+
+func InitHandlers() (*rpcclient.Client, error) {
+	return &rpcclient.Client{}, nil
 }
 
 type BtcTransaction struct {

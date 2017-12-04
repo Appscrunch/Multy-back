@@ -48,6 +48,10 @@ var memPool []MultyMempoolTx
 
 var rpcClient = &rpcclient.Client{}
 
+type rpcClientWrapper struct {
+	*rpcclient.Client
+}
+
 var connCfg = &rpcclient.ConnConfig{
 	Host:         "192.168.0.121:18334",
 	User:         "multy",

@@ -3,11 +3,11 @@ package multyback
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/Appscrunch/Multy-back/client"
 	"github.com/Appscrunch/Multy-back/store"
+	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
 
 	socketio "github.com/googollee/go-socket.io"
@@ -22,10 +22,14 @@ const (
 type Multy struct {
 	config     *Configuration
 	clientPool *client.ConnectedPool
-	dataStore  store.DataStore
-	memPool    store.DataStore
-	route      *gin.Engine
+	//dataStore  store.DataStore
+	//memPool    store.DataStore
+	userStore store.UserStore
+	route     *gin.Engine
+
 	socketIO   *socketio.Server
+	rpcClient  *rpcclient.Client
+	restClient *client.RestClient
 }
 
 // Init initializes Multy instance
@@ -35,18 +39,19 @@ func Init(conf *Configuration) (*Multy, error) {
 		clientPool: client.InitConnectedPool(),
 	}
 
-	dataStore, err := store.Init(m.config.DataStore)
+	userStore, err := store.InitUserStore(conf.DataStoreAddress)
 	if err != nil {
-		return nil, fmt.Errorf("database initialization: %s", err.Error())
+		return nil, err
 	}
-	m.dataStore = dataStore
+	m.userStore = userStore
 
 	// TODO: add channels for communitation
 	log.Println("[DEBUG] InitHandlers")
-	err = btc.InitHandlers()
+	rpcClient, err := btc.InitHandlers()
 	if err != nil {
 		return nil, fmt.Errorf("blockchain api initialization: %s", err.Error())
 	}
+	m.rpcClient = rpcClient
 
 	if err = m.initRoute(conf.Address); err != nil {
 		return nil, fmt.Errorf("router initialization: %s", err.Error())
@@ -72,10 +77,11 @@ func (m *Multy) initRoute(address string) error {
 	m.socketIO = socketIOServer
 
 	restRoute := rWithVersion.Group("/rest")
-	err := client.SetRestHandlers(restRoute, m.clientPool)
+	restClient, err := client.SetRestHandlers(m.userStore, restRoute, m.rpcClient)
 	if err != nil {
 		return err
 	}
+	m.restClient = restClient
 
 	return nil
 }
@@ -86,7 +92,8 @@ func (m *Multy) Run() error {
 		log.Println("[INFO] listening on default addres: ", defaultServerAddress)
 	}
 	m.config.Address = defaultServerAddress
-	time.Sleep(time.Second * 1000)
-	//m.route.Run(m.config.Address)
+
+	log.Println("[DEBUG] running server")
+	m.route.Run(m.config.Address)
 	return nil
 }

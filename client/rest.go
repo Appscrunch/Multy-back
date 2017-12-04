@@ -1,51 +1,52 @@
 package client
 
 import (
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/Appscrunch/Multy-back/store"
 	"github.com/Appscrunch/Multy-back/types"
+
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
-	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
-var (
-	usersData  *mgo.Collection
-	restClient *rpcclient.Client
-	countsLock sync.Mutex
-)
+type RestClient struct {
+	userStore store.UserStore
+	rpcClient *rpcclient.Client
+	m         *sync.Mutex
+}
 
-func SetRestHandlers(db *mgo.Session, r *gin.RouterGroup) error {
-	usersData = db.DB("cyberkek").C("users")
+func SetRestHandlers(userDB store.UserStore, r *gin.RouterGroup, clientRPC *rpcclient.Client) (*RestClient, error) {
+	restClient := &RestClient{
+		userStore: userDB,
+		rpcClient: clientRPC,
+		m:         &sync.Mutex{},
+	}
 
 	//r.POST("/auth", authMiddleware.LoginHandler)
 	//r.Use(authMiddleware.MiddlewareFunc())
 
-	log.Println("[DEBUG] SetFirebaseHandlers: not implemented")
-	r.POST("/addadress/:userid", addAddress)
-	r.POST("/addwallet/:userid", addWallet) // rename
-	r.POST("/exchange/:exchanger", exchange)
-	r.POST("/sendtransaction/:curid", sendTransaction)
+	r.POST("/addadress/:userid", restClient.addAddress())
+	r.POST("/addwallet/:userid", restClient.addWallet()) // rename
+	r.POST("/exchange/:exchanger", restClient.exchange())
+	//r.POST("/sendtransaction/:curid", sendTransaction)
 
-	r.GET("/getassetsinfo", getAssetsInfo)
+	/*r.GET("/getassetsinfo", getAssetsInfo)
 	r.GET("/getblock/:height", getBlock)
 	r.GET("/getmarkets", getMarkets)
 	r.GET("/gettransactioninfo/:txid", getTransactionInfo)
 	r.GET("/gettickets/:pair", getTickets)
 	r.GET("/getadresses/:id", getAdresses)
 	r.GET("/getexchangeprice/:from/:to", getExchangePrice)
-	r.GET("/getactivities/:adress/:datefrom/:dateto", getActivities)
-	r.GET("/getaddressbalance/:addr", getAdressBalance)
+	r.GET("/getactivities/:adress/:datefrom/:dateto", getActivities)*/
+	r.GET("/getaddressbalance/:addr", restClient.getAdressBalance())
 
-	return nil
+	return restClient, nil
 }
 
 // ----------createWallet----------
@@ -70,14 +71,19 @@ type Tx struct {
 
 // ----------getAdresses----------
 type DisplayWallet struct {
-	Chain    string    `json:"chain"`
-	Adresses []Address `json:"adresses"`
+	Chain    string          `json:"chain"`
+	Adresses []store.Address `json:"adresses"`
 }
 
-var exchange = func(c *gin.Context) {
-
+func (restClient *RestClient) exchange() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "not implemented",
+		})
+	}
 }
 
+/*
 var getBlock = func(c *gin.Context) {
 	height := c.Param("height")
 
@@ -120,51 +126,57 @@ var getTickets = func(c *gin.Context) { // shapeshift
 	})
 
 }
+*/
 
-var getAdressBalance = func(c *gin.Context) { //recieve rgb(255, 0, 0)
-	addr := c.Param("addr")
-	url := "https://blockchain.info/q/addressbalance/" + addr
-	response, err := http.Get(url)
-	responseErr(c, err, http.StatusServiceUnavailable) // 503
+func (restClient *RestClient) getAdressBalance() gin.HandlerFunc {
+	return func(c *gin.Context) { //recieve rgb(255, 0, 0)
+		addr := c.Param("addr")
+		url := "https://blockchain.info/q/addressbalance/" + addr
+		response, err := http.Get(url)
+		responseErr(c, err, http.StatusServiceUnavailable) // 503
 
-	data, err := ioutil.ReadAll(response.Body)
-	responseErr(c, err, http.StatusInternalServerError) // 500
+		data, err := ioutil.ReadAll(response.Body)
+		responseErr(c, err, http.StatusInternalServerError) // 500
 
-	b, err := strconv.Atoi(string(data))
+		b, err := strconv.Atoi(string(data))
 
-	c.JSON(http.StatusOK, gin.H{
-		"ballance": b,
-	})
-
-}
-
-var getAdresses = func(c *gin.Context) { //recieve rgb(255, 0, 0)
-	token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-	// userID := c.Param("userid")
-	sel := bson.M{"devices.JWT": token}
-
-	var user User
-	usersData.Find(sel).One(&user)
-
-	if user.UserID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": http.StatusText(400),
+		c.JSON(http.StatusOK, gin.H{
+			"ballance": b,
 		})
-		return
 	}
-
-	userWallets := map[int]DisplayWallet{}
-
-	for k, v := range user.Wallets {
-		userWallets[k] = DisplayWallet{v.Chain, v.Adresses}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"userWallets": userWallets,
-	})
 }
 
+func (restClient *RestClient) getAddresses() gin.HandlerFunc {
+	return func(c *gin.Context) { //recieve rgb(255, 0, 0)
+		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
+		// userID := c.Param("userid")
+		sel := bson.M{"devices.JWT": token}
+
+		var user store.User
+
+		restClient.userStore.GetUserByDevice(sel, user)
+
+		if user.UserID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"message": http.StatusText(400),
+			})
+			return
+		}
+
+		userWallets := map[int]DisplayWallet{}
+
+		for k, v := range user.Wallets {
+			userWallets[k] = DisplayWallet{v.Chain, v.Adresses}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"userWallets": userWallets,
+		})
+	}
+}
+
+/*
 var getExchangePrice = func(c *gin.Context) { //recieve rgb(255, 0, 0)
 
 	from := strings.ToUpper(c.Param("from"))
@@ -238,52 +250,56 @@ var getTransactionInfo = func(c *gin.Context) {
 // 	update := bson.M{"$push": bson.M{"wallets": wallet}}
 //
 // }
+*/
 
-var addWallet = func(c *gin.Context) {
-	token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-	userID := c.Param("userid")
+func (restClient *RestClient) addWallet() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
+		userID := c.Param("userid")
 
-	var wp WalletParams
-	decodeBody(c, &wp)
-	wallet := createWallet(types.String(wp.Currency), wp.Address, wp.AddressID)
+		var wp WalletParams
+		decodeBody(c, &wp)
+		wallet := createWallet(types.String(wp.Currency), wp.Address, wp.AddressID)
 
-	sel := bson.M{"devices.JWT": token, "userID": userID}
-	update := bson.M{"$push": bson.M{"wallets": wallet}}
+		sel := bson.M{"devices.JWT": token, "userID": userID}
+		update := bson.M{"$push": bson.M{"wallets": wallet}}
 
-	countsLock.Lock()
-	defer countsLock.Unlock()
-	err := usersData.Update(sel, update)
-	responseErr(c, err, http.StatusInternalServerError) // 500
+		restClient.m.Lock()
+		defer restClient.m.Unlock()
+		err := restClient.userStore.Update(sel, update)
+		responseErr(c, err, http.StatusInternalServerError) // 500
 
-	c.JSON(http.StatusCreated, gin.H{
-		"code":    http.StatusCreated,
-		"message": http.StatusText(http.StatusCreated),
-	})
-
+		c.JSON(http.StatusCreated, gin.H{
+			"code":    http.StatusCreated,
+			"message": http.StatusText(http.StatusCreated),
+		})
+	}
 }
 
-var addAddress = func(c *gin.Context) {
-	token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-	userID := c.Param("userid")
+func (restClient *RestClient) addAddress() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
+		userID := c.Param("userid")
 
-	var sw selectWallet
-	decodeBody(c, &sw)
+		var sw selectWallet
+		decodeBody(c, &sw)
 
-	sel := bson.M{"wallets.name": sw.Name, "userID": userID, "devices.JWT": token}
-	update := bson.M{"$push": bson.M{"wallets.$.adresses": sw.Address}}
+		sel := bson.M{"wallets.name": sw.Name, "userID": userID, "devices.JWT": token}
+		update := bson.M{"$push": bson.M{"wallets.$.adresses": sw.Address}}
 
-	countsLock.Lock()
-	defer countsLock.Unlock()
-	err := usersData.Update(sel, update)
-	responseErr(c, err, http.StatusInternalServerError) // 500
+		restClient.m.Lock()
+		defer restClient.m.Unlock()
+		err := restClient.userStore.Update(sel, update)
+		responseErr(c, err, http.StatusInternalServerError) // 500
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    http.StatusOK,
-		"message": http.StatusText(http.StatusOK),
-	})
-
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"message": http.StatusText(http.StatusOK),
+		})
+	}
 }
 
+/*
 var sendTransaction = func(c *gin.Context) {
 	curID := c.Param("curid")
 	i, err := strconv.Atoi(curID)
@@ -311,33 +327,4 @@ var sendTransaction = func(c *gin.Context) {
 		})
 	}
 
-}
-
-func responseErr(c *gin.Context, err error, code int) {
-	if err != nil {
-		c.JSON(code, gin.H{
-			"code":    code,
-			"message": http.StatusText(code),
-		})
-	}
-
-	return
-}
-
-func decodeBody(c *gin.Context, to interface{}) {
-	body := json.NewDecoder(c.Request.Body)
-	err := body.Decode(to)
-	defer c.Request.Body.Close()
-	responseErr(c, err, http.StatusInternalServerError) // 500
-}
-
-func makeRequest(c *gin.Context, url string, to interface{}) {
-	response, err := http.Get(url)
-	responseErr(c, err, http.StatusServiceUnavailable) // 503
-
-	data, err := ioutil.ReadAll(response.Body)
-	responseErr(c, err, http.StatusInternalServerError) // 500
-
-	err = json.Unmarshal(data, to)
-	responseErr(c, err, http.StatusInternalServerError) // 500
-}
+}*/
