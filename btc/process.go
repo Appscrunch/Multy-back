@@ -1,4 +1,4 @@
-package main
+package btc
 
 import (
 	"fmt"
@@ -54,7 +54,7 @@ var connCfg = &rpcclient.ConnConfig{
 	Certificates: []byte(`testsert`),
 }
 
-func main() {
+func RunProcess() {
 
 	if err := dialdb(); err != nil {
 		log.Fatalln("failed to dial MongoDB:", err)
