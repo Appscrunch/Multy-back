@@ -1,17 +1,53 @@
 package client
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
 
+	"github.com/Appscrunch/Multy-back/types"
+	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
+	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
-func SetRestHandlers(c *gin.Engine) error {
+var (
+	usersData  *mgo.Collection
+	restClient *rpcclient.Client
+	countsLock sync.Mutex
+)
+
+func SetRestHandlers(db *mgo.Session, r *gin.RouterGroup) error {
+	usersData = db.DB("cyberkek").C("users")
+
+	//r.POST("/auth", authMiddleware.LoginHandler)
+	//r.Use(authMiddleware.MiddlewareFunc())
+
 	log.Println("[DEBUG] SetFirebaseHandlers: not implemented")
+	r.POST("/addadress/:userid", addAddress)
+	r.POST("/addwallet/:userid", addWallet) // rename
+	r.POST("/exchange/:exchanger", exchange)
+	r.POST("/sendtransaction/:curid", sendTransaction)
+
+	r.GET("/getassetsinfo", getAssetsInfo)
+	r.GET("/getblock/:height", getBlock)
+	r.GET("/getmarkets", getMarkets)
+	r.GET("/gettransactioninfo/:txid", getTransactionInfo)
+	r.GET("/gettickets/:pair", getTickets)
+	r.GET("/getadresses/:id", getAdresses)
+	r.GET("/getexchangeprice/:from/:to", getExchangePrice)
+	r.GET("/getactivities/:adress/:datefrom/:dateto", getActivities)
+	r.GET("/getaddressbalance/:addr", getAdressBalance)
+
 	return nil
 }
 
-/*
 // ----------createWallet----------
 type WalletParams struct {
 	Currency  int    `json:"currency"`
@@ -34,8 +70,8 @@ type Tx struct {
 
 // ----------getAdresses----------
 type DisplayWallet struct {
-	Chain    string          `json:"chain"`
-	Adresses []types.Address `json:"adresses"`
+	Chain    string    `json:"chain"`
+	Adresses []Address `json:"adresses"`
 }
 
 var exchange = func(c *gin.Context) {
@@ -107,7 +143,7 @@ var getAdresses = func(c *gin.Context) { //recieve rgb(255, 0, 0)
 	// userID := c.Param("userid")
 	sel := bson.M{"devices.JWT": token}
 
-	var user types.User
+	var user User
 	usersData.Find(sel).One(&user)
 
 	if user.UserID == "" {
@@ -155,7 +191,7 @@ var getAssetsInfo = func(c *gin.Context) { // recieve rgb(0, 255, 0)
 			for _, addr := range as.Adresses {
 				assets[name] += getadressbalance(c, addr.Address, 1)
 			}
-		case appuser.String(appuser.Ether):
+		case types.String(types.Ether):
 			for _, addr := range as.Adresses {
 				assets[name] += getadressbalance(c, addr.Address, 2)
 			}
@@ -256,17 +292,17 @@ var sendTransaction = func(c *gin.Context) {
 	}
 
 	switch i {
-	case appuser.Bitcoin:
+	case types.Bitcoin:
 		var tx Tx
 		decodeBody(c, &tx)
-		txid, err := client.SendCyberRawTransaction(tx.Transaction, tx.AllowHighFees)
+		txid, err := restClient.SendCyberRawTransaction(tx.Transaction, tx.AllowHighFees)
 		responseErr(c, err, http.StatusInternalServerError) // 500
 
 		c.JSON(http.StatusOK, gin.H{
 			"txid": txid,
 		})
 
-	case appuser.Ether:
+	case types.Ether:
 		//not implemented yet
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -305,4 +341,3 @@ func makeRequest(c *gin.Context, url string, to interface{}) {
 	err = json.Unmarshal(data, to)
 	responseErr(c, err, http.StatusInternalServerError) // 500
 }
-*/

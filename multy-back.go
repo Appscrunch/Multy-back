@@ -62,7 +62,7 @@ func (m *Multy) initRoute(address string) error {
 
 	gin.SetMode(gin.DebugMode)
 
-	socketIORoute := rWithVersion.Group("/socketio")
+	socketIORoute := router.Group("/socketio")
 	socketIOServer, err := client.SetSocketIOHandlers(socketIORoute, m.clientPool)
 	if err != nil {
 		return err
@@ -70,6 +70,13 @@ func (m *Multy) initRoute(address string) error {
 
 	m.route = router
 	m.socketIO = socketIOServer
+
+	restRoute := rWithVersion.Group("/rest")
+	err := client.SetRestHandlers(restRoute, m.clientPool)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

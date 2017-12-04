@@ -1,4 +1,4 @@
-package main
+package btc
 
 import (
 	"fmt"
@@ -34,6 +34,7 @@ type MultyAddress struct {
 	amount  float64
 }
 
+/*
 type configuration struct {
 	Server,
 	MongoDBHost,
@@ -41,10 +42,11 @@ type configuration struct {
 	DBPwd,
 	Database string
 }
+*/
 
 var memPool []MultyMempoolTx
 
-var client = &rpcclient.Client{}
+var rpcClient = &rpcclient.Client{}
 
 var connCfg = &rpcclient.ConnConfig{
 	Host:         "192.168.0.121:18334",
@@ -54,14 +56,9 @@ var connCfg = &rpcclient.ConnConfig{
 	Certificates: []byte(`testsert`),
 }
 
-func main() {
-
-	if err := dialdb(); err != nil {
-		log.Fatalln("failed to dial MongoDB:", err)
-	}
-	defer closedb()
+func RunProcess(db mgo.Session) error {
 	mempoolRates = db.DB("BTCMempool").C("Rates")
-	time.Sleep(time.Second)
+	//time.Sleep(time.Second)
 
 	ntfnHandlers := rpcclient.NotificationHandlers{
 
@@ -72,10 +69,10 @@ func main() {
 			go parseRawTransaction(txDetails)
 		},
 		OnRedeemingTx: func(transaction *btcutil.Tx, details *btcjson.BlockDetails) {
-			log.Printf("OnRedeemingTx", transaction, details)
+			log.Println("OnRedeemingTx ", transaction, details)
 		},
 		OnUnknownNotification: func(method string, params []json.RawMessage) {
-			log.Printf("OnUnknowNotification:", method, params)
+			log.Println("OnUnknowNotification: ", method, params)
 		},
 		//OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txns []*btcutil.Tx) {
 		//	log.Printf("Block connected: %v (%d) %v", header.BlockHash(), height, header.Timestamp)
@@ -96,31 +93,31 @@ func main() {
 	}
 
 	var err error
-
-	client, err = rpcclient.New(connCfg, &ntfnHandlers)
+	rpcClient, err = rpcclient.New(connCfg, &ntfnHandlers)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("ERR pcclient.New: ", err.Error())
+		return err
 	}
 
 	// Register for block connect and disconnect notifications.
-	if err := client.NotifyBlocks(); err != nil {
-		log.Fatal(err)
+	if err = rpcClient.NotifyBlocks(); err != nil {
+		return err
 	}
 	log.Println("NotifyBlocks: Registration Complete")
 
-	if newTxErr := client.NotifyNewTransactions(true); newTxErr != nil {
-		log.Fatal(newTxErr)
+	if err = rpcClient.NotifyNewTransactions(true); err != nil {
+		return err
 	}
 
 	//When first launch here we are getting all mem pool transactions
 	go getAllMempool()
 
-	client.WaitForShutdown()
-
+	rpcClient.WaitForShutdown()
+	return nil
 }
 
 //Here we parsing transaction by getting inputs and outputs addresses
-func parseRawTransaction(inTx *btcjson.TxRawResult) {
+func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 
 	memPoolTx := MultyMempoolTx{size: inTx.Size, hash: inTx.Hash, txid: inTx.Txid}
 
@@ -140,10 +137,10 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) {
 			log.Fatal(errCHash)
 		}
 
-		oldTx, oldTxErr := client.GetRawTransactionVerbose(txCHash)
-
-		if oldTxErr != nil {
-			log.Fatal(oldTxErr)
+		oldTx, err := rpcClient.GetRawTransactionVerbose(txCHash)
+		if err != nil {
+			log.Println("ERR GetRawTransactionVerbose [old]: ", err.Error())
+			return err
 		}
 
 		oldOutputs := oldTx.Vout
@@ -181,7 +178,8 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) {
 
 	err := mempoolRates.Insert(rec)
 	if err != nil {
-		fmt.Println(err)
+		log.Println("ERR mempoolRates.Insert: ", err.Error())
+		return err
 	}
 
 	//TODO save transaction as mem pool tx
@@ -189,7 +187,7 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) {
 	memPool = append(memPool, memPoolTx)
 
 	log.Printf("New Multy MemPool Size is: %d", len(memPool))
-
+	return nil
 }
 
 func newRecord(category int, hashTX string) Record {
@@ -205,10 +203,11 @@ type Record struct {
 }
 
 var (
-	db           *mgo.Session
+	//db           *mgo.Session
 	mempoolRates *mgo.Collection
 )
 
+/*
 func dialdb() error {
 	var err error
 	log.Println("dialing mongodb: localhost")
@@ -216,16 +215,17 @@ func dialdb() error {
 	return err
 }
 
+
 func closedb() {
 	db.Close()
 	log.Println("closed database connection")
 }
+*/
 
 func getAllMempool() {
-	rawMemPool, err := client.GetRawMempool()
-
+	rawMemPool, err := rpcClient.GetRawMempool()
 	if err != nil {
-		log.Printf("Err:", err)
+		log.Println("ERR rpcClient.GetRawMempool [rawMemPool]: ", err.Error())
 	}
 	log.Printf("rawMemPoolSize: %d", len(rawMemPool))
 
@@ -236,17 +236,19 @@ func getAllMempool() {
 
 //Here we are getting transaction by hash
 func getRawTx(hash *chainhash.Hash) {
-	rawTx, err := client.GetRawTransactionVerbose(hash)
+	rawTx, err := rpcClient.GetRawTransactionVerbose(hash)
 	if err != nil {
-		log.Printf("err", err)
+		log.Println("ERR GetRawTransactionVerbose: ", err.Error())
+		//TODO
+		return
 	}
 	go parseRawTransaction(rawTx)
 }
 
 func getNewBlock(hash *chainhash.Hash) {
-	blockMSG, err := client.GetBlock(hash)
+	blockMSG, err := rpcClient.GetBlock(hash)
 	if err != nil {
-		log.Printf("GetBlock Err:", err)
+		log.Println("ERR GetBlock:", err.Error())
 	}
 	hs, err := blockMSG.TxHashes()
 	if err != nil {
