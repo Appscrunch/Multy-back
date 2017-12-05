@@ -1,5 +1,7 @@
 package client
 
+import "github.com/Appscrunch/Multy-back/store"
+
 /*
 // The jwt middleware.
 var authMiddleware = GinJWTMiddleware{
@@ -168,11 +170,11 @@ func createDevice(deviceid, ip, jwt string) appuser.Device {
 	}
 }
 */
-func createWallet(chain, address, addressID string) Wallet {
-	return Wallet{
+func createWallet(chain, address, addressID string) store.Wallet {
+	return store.Wallet{
 		Chain: chain,
-		Adresses: []Address{
-			Address{
+		Adresses: []store.Address{
+			store.Address{
 				Address:   address,
 				AddressID: addressID,
 			},

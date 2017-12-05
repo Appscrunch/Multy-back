@@ -10,6 +10,31 @@ import (
 	socketio "github.com/googollee/go-socket.io"
 )
 
+const (
+	socketIOOutMsg = "outcoming"
+	socketIOInMsg  = "incoming"
+
+	deviceTypeMac     = "mac"
+	deviceTypeAndroid = "android"
+)
+
+type SocketIONotifyMessage struct {
+	TransactionType string `json:"transactionType"`
+	Amount          int64  `json:"amount"`
+	TxID            int64  `json:"txid"`
+}
+
+type SocketIOIdentifyer struct {
+	userID     string
+	deviceType string
+	jwtToken   []byte
+}
+
+/*func getHeaderDataSocketIO(headers http.Header) (*SocketIOIdentifyer, error) {
+	if _, ok := headers[""]
+	return nil, nil
+}*/
+
 func SetSocketIOHandlers(r *gin.RouterGroup, clients *ConnectedPool) (*socketio.Server, error) {
 	server, err := socketio.NewServer(nil)
 	if err != nil {
@@ -19,10 +44,10 @@ func SetSocketIOHandlers(r *gin.RouterGroup, clients *ConnectedPool) (*socketio.
 	server.OnConnect("/", func(s socketio.Conn) error {
 		s.SetContext("")
 		fmt.Println("connected:", s.ID())
-		headers := s.RemoteHeader()
-		for _, h := range headers {
+		//userIdentificator, err := getHeaderDataSocketIO(s.RemoteHeader())
+		/*	for _, h := range headers {
 			log.Printf("DEBUG header %+v\n", h)
-		}
+		}*/
 		connectionID := s.ID()
 		connCh := make(chan btc.BtcTransaction, 0)
 
@@ -50,7 +75,8 @@ func SetSocketIOHandlers(r *gin.RouterGroup, clients *ConnectedPool) (*socketio.
 
 	http.Handle("/socket.io/", server)
 
-	log.Fatal(http.ListenAndServe("0.0.0.0:7778", nil))
-
+	go func() {
+		http.ListenAndServe("0.0.0.0:7778", nil)
+	}()
 	return nil, nil
 }
