@@ -63,7 +63,6 @@ func Init(conf *Configuration) (*Multy, error) {
 
 func (m *Multy) initRoute(address string) error {
 	router := gin.Default()
-	rWithVersion := router.Group("/" + version)
 
 	gin.SetMode(gin.DebugMode)
 
@@ -76,8 +75,7 @@ func (m *Multy) initRoute(address string) error {
 	m.route = router
 	m.socketIO = socketIOServer
 
-	restRoute := rWithVersion.Group("/rest")
-	restClient, err := client.SetRestHandlers(m.userStore, restRoute, m.rpcClient)
+	restClient, err := client.SetRestHandlers(m.userStore, router, m.rpcClient)
 	if err != nil {
 		return err
 	}

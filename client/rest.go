@@ -23,7 +23,7 @@ type RestClient struct {
 	m             *sync.Mutex
 }
 
-func SetRestHandlers(userDB store.UserStore, r *gin.RouterGroup, clientRPC *rpcclient.Client) (*RestClient, error) {
+func SetRestHandlers(userDB store.UserStore, r *gin.Engine, clientRPC *rpcclient.Client) (*RestClient, error) {
 	restClient := &RestClient{
 		userStore: userDB,
 		rpcClient: clientRPC,
@@ -32,10 +32,11 @@ func SetRestHandlers(userDB store.UserStore, r *gin.RouterGroup, clientRPC *rpcc
 
 	initMiddlewareJWT(restClient)
 
+	r.POST("/auth", restClient.LoginHandler())
+
 	v1 := r.Group("/api/v1")
 	v1.Use(restClient.middlewareJWT.MiddlewareFunc())
 	{
-		v1.POST("/auth", restClient.LoginHandler())
 
 		v1.POST("/addadress/:userid", restClient.addAddress())
 		v1.POST("/addwallet/:userid", restClient.addWallet()) // rename
