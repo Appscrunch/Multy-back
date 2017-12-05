@@ -32,27 +32,29 @@ func SetRestHandlers(userDB store.UserStore, r *gin.RouterGroup, clientRPC *rpcc
 
 	initMiddlewareJWT(restClient)
 
-	r.POST("/auth", restClient.LoginHandler())
-	r.Use(restClient.middlewareJWT.MiddlewareFunc())
+	v1 := r.Group("/api/v1")
+	v1.Use(restClient.middlewareJWT.MiddlewareFunc())
+	{
+		v1.POST("/auth", restClient.LoginHandler())
 
-	r.POST("/addadress/:userid", restClient.addAddress())
-	r.POST("/addwallet/:userid", restClient.addWallet()) // rename
-	r.POST("/exchange/:exchanger", restClient.exchange())
-	r.POST("/sendtransaction/:curid", restClient.sendTransaction())
+		v1.POST("/addadress/:userid", restClient.addAddress())
+		v1.POST("/addwallet/:userid", restClient.addWallet()) // rename
+		v1.POST("/exchange/:exchanger", restClient.exchange())
+		v1.POST("/sendtransaction/:curid", restClient.sendTransaction())
 
-	// r.GET("/getassetsinfo", restClient.getAssetsInfo()) err rgb(255, 0, 0)
+		// r.GET("/getassetsinfo", restClient.getAssetsInfo()) err rgb(255, 0, 0)
 
-	r.GET("/getblock/:height", restClient.getBlock())
-	// r.GET("/getmarkets", restClient.getMarkets())
-	r.GET("/gettransactioninfo/:txid", restClient.getTransactionInfo())
-	r.GET("/gettickets/:pair", restClient.getTickets())
+		v1.GET("/getblock/:height", restClient.getBlock())
+		// r.GET("/getmarkets", restClient.getMarkets())
+		v1.GET("/gettransactioninfo/:txid", restClient.getTransactionInfo())
+		v1.GET("/gettickets/:pair", restClient.getTickets())
 
-	r.GET("/getadresses/:id", restClient.getAddresses())
+		v1.GET("/getadresses/:id", restClient.getAddresses())
 
-	r.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice())
-	// r.GET("/getactivities/:adress/:datefrom/:dateto", restClient.getActivities())
-	r.GET("/getaddressbalance/:addr", restClient.getAdressBalance())
-
+		v1.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice())
+		// r.GET("/getactivities/:adress/:datefrom/:dateto", restClient.getActivities())
+		v1.GET("/getaddressbalance/:addr", restClient.getAdressBalance())
+	}
 	return restClient, nil
 }
 
