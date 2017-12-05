@@ -1,4 +1,4 @@
-package types
+package currencies
 
 const (
 	Bitcoin                = 0
