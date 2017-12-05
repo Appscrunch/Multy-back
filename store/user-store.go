@@ -20,7 +20,9 @@ const (
 type UserStore interface {
 	//GetSession()
 	GetUserByDevice(device bson.M, user User)
-	Update(device bson.M, update bson.M) error
+	Update(device bson.M, update interface{}) error
+	Insert(data interface{}) error
+	Find(query bson.M, data interface{}) error
 	Close() error
 }
 
@@ -35,8 +37,16 @@ func (mongo *MongoUserStore) GetUserByDevice(device bson.M, user User) {
 	return
 }
 
-func (mongo *MongoUserStore) Update(device bson.M, update bson.M) error {
-	return mongo.usersData.Update(device, update)
+func (mongo *MongoUserStore) Update(sel bson.M, update interface{}) error {
+	return mongo.usersData.Update(sel, update)
+}
+
+func (mongo *MongoUserStore) Find(query bson.M, data interface{}) error {
+	return mongo.usersData.Find(query).One(&data)
+}
+
+func (mongo *MongoUserStore) Insert(data interface{}) error {
+	return mongo.usersData.Insert(data)
 }
 
 func InitUserStore(address string) (UserStore, error) {

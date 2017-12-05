@@ -76,7 +76,7 @@ func SetSocketIOHandlers(r *gin.RouterGroup, clients *ConnectedPool) (*socketio.
 	http.Handle("/socket.io/", server)
 
 	go func() {
-		http.ListenAndServe("0.0.0.0:7778", nil)
+		http.ListenAndServe("0.0.0.0:7779", nil)
 	}()
 	return nil, nil
 }

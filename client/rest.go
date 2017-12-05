@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/Appscrunch/Multy-back/currencies"
 	"github.com/Appscrunch/Multy-back/store"
-	"github.com/Appscrunch/Multy-back/types"
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
@@ -16,9 +17,10 @@ import (
 )
 
 type RestClient struct {
-	userStore store.UserStore
-	rpcClient *rpcclient.Client
-	m         *sync.Mutex
+	middlewareJWT *GinJWTMiddleware
+	userStore     store.UserStore
+	rpcClient     *rpcclient.Client
+	m             *sync.Mutex
 }
 
 func SetRestHandlers(userDB store.UserStore, r *gin.RouterGroup, clientRPC *rpcclient.Client) (*RestClient, error) {
@@ -28,25 +30,61 @@ func SetRestHandlers(userDB store.UserStore, r *gin.RouterGroup, clientRPC *rpcc
 		m:         &sync.Mutex{},
 	}
 
-	//r.POST("/auth", authMiddleware.LoginHandler)
-	//r.Use(authMiddleware.MiddlewareFunc())
+	initMiddlewareJWT(restClient)
+
+	r.POST("/auth", restClient.LoginHandler())
+	r.Use(restClient.middlewareJWT.MiddlewareFunc())
 
 	r.POST("/addadress/:userid", restClient.addAddress())
 	r.POST("/addwallet/:userid", restClient.addWallet()) // rename
 	r.POST("/exchange/:exchanger", restClient.exchange())
-	//r.POST("/sendtransaction/:curid", sendTransaction)
+	r.POST("/sendtransaction/:curid", restClient.sendTransaction())
 
-	/*r.GET("/getassetsinfo", getAssetsInfo)
-	r.GET("/getblock/:height", getBlock)
-	r.GET("/getmarkets", getMarkets)
-	r.GET("/gettransactioninfo/:txid", getTransactionInfo)
-	r.GET("/gettickets/:pair", getTickets)
-	r.GET("/getadresses/:id", getAdresses)
-	r.GET("/getexchangeprice/:from/:to", getExchangePrice)
-	r.GET("/getactivities/:adress/:datefrom/:dateto", getActivities)*/
+	// r.GET("/getassetsinfo", restClient.getAssetsInfo()) err rgb(255, 0, 0)
+
+	r.GET("/getblock/:height", restClient.getBlock())
+	// r.GET("/getmarkets", restClient.getMarkets())
+	r.GET("/gettransactioninfo/:txid", restClient.getTransactionInfo())
+	r.GET("/gettickets/:pair", restClient.getTickets())
+
+	r.GET("/getadresses/:id", restClient.getAddresses())
+
+	r.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice())
+	// r.GET("/getactivities/:adress/:datefrom/:dateto", restClient.getActivities())
 	r.GET("/getaddressbalance/:addr", restClient.getAdressBalance())
 
 	return restClient, nil
+}
+
+func initMiddlewareJWT(restClient *RestClient) {
+	restClient.middlewareJWT = &GinJWTMiddleware{
+		Realm:      "test zone",
+		Key:        []byte("secret key"), // config
+		Timeout:    time.Hour,
+		MaxRefresh: time.Hour,
+		Authenticator: func(userId string, deviceId string, password string, c *gin.Context) (store.User, bool) {
+
+			query := bson.M{"userID": userId}
+
+			user := store.User{}
+
+			err := restClient.userStore.Find(query, &user)
+
+			if err != nil || len(user.UserID) == 0 {
+				return store.User{}, false
+			}
+
+			return user, true
+		},
+		//Authorizator:  authorizator,
+		//Unauthorized: unauthorized,
+		Unauthorized: nil,
+		TokenLookup:  "header:Authorization",
+
+		TokenHeadName: "Bearer",
+
+		TimeFunc: time.Now,
+	}
 }
 
 // ----------createWallet----------
@@ -54,13 +92,19 @@ type WalletParams struct {
 	Currency  int    `json:"currency"`
 	Address   string `json:"address"`
 	AddressID string `json:"addressID"`
+	WalletID  string `json:"walletID"`
 }
 
 // ----------addAddress------------
 // ----------deleteWallet----------
 type selectWallet struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
+	WalletID  string `json:"walletID"`
+	Address   string `json:"address"`
+	AddressID string `json:"addressID"`
+}
+type Address struct {
+	Address   string `json:"address"`
+	AddressID string `json:"addressID"`
 }
 
 // ----------sendTransaction----------
@@ -83,50 +127,53 @@ func (restClient *RestClient) exchange() gin.HandlerFunc {
 	}
 }
 
-/*
-var getBlock = func(c *gin.Context) {
-	height := c.Param("height")
+func (restClient *RestClient) getBlock() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		height := c.Param("height")
 
-	url := "https://bitaps.com/api/block/" + height
+		url := "https://bitaps.com/api/block/" + height
 
-	if height == "last" {
-		url = "https://bitaps.com/api/block/latest"
+		if height == "last" {
+			url = "https://bitaps.com/api/block/latest"
+		}
+
+		response, err := http.Get(url)
+		responseErr(c, err, http.StatusServiceUnavailable) // 503
+
+		data, err := ioutil.ReadAll(response.Body)
+		responseErr(c, err, http.StatusInternalServerError) // 500
+
+		c.Writer.WriteHeader(http.StatusOK)
+		c.Writer.Header().Set("Content-Type", "application/json")
+		c.Writer.Write(data)
 	}
-
-	response, err := http.Get(url)
-	responseErr(c, err, http.StatusServiceUnavailable) // 503
-
-	data, err := ioutil.ReadAll(response.Body)
-	responseErr(c, err, http.StatusInternalServerError) // 500
-
-	c.Writer.WriteHeader(http.StatusOK)
-	c.Writer.Header().Set("Content-Type", "application/json")
-	c.Writer.Write(data)
 }
 
+/*
 var getMarkets = func(c *gin.Context) {
 
 }
-
-var getTickets = func(c *gin.Context) { // shapeshift
-	pair := c.Param("pair")
-	url := "https://shapeshift.io/marketinfo/" + pair
-
-	var to map[string]interface{}
-
-	makeRequest(c, url, &to)
-	// fv := v.Convert(floatType).Float()
-
-	c.JSON(http.StatusOK, gin.H{
-		"pair":     to["pair"],
-		"rate":     to["rate"],
-		"limit":    to["limit"],
-		"minimum":  to["minimum"],
-		"minerFee": to["minerFee"],
-	})
-
-}
 */
+
+func (restClient *RestClient) getTickets() gin.HandlerFunc { // shapeshift
+	return func(c *gin.Context) {
+		pair := c.Param("pair")
+		url := "https://shapeshift.io/marketinfo/" + pair
+
+		var to map[string]interface{}
+
+		makeRequest(c, url, &to)
+		// fv := v.Convert(floatType).Float()
+
+		c.JSON(http.StatusOK, gin.H{
+			"pair":     to["pair"],
+			"rate":     to["rate"],
+			"limit":    to["limit"],
+			"minimum":  to["minimum"],
+			"minerFee": to["minerFee"],
+		})
+	}
+}
 
 func (restClient *RestClient) getAdressBalance() gin.HandlerFunc {
 	return func(c *gin.Context) { //recieve rgb(255, 0, 0)
@@ -146,10 +193,10 @@ func (restClient *RestClient) getAdressBalance() gin.HandlerFunc {
 	}
 }
 
-func (restClient *RestClient) getAddresses() gin.HandlerFunc {
-	return func(c *gin.Context) { //recieve rgb(255, 0, 0)
+func (restClient *RestClient) getAddresses() gin.HandlerFunc { //recieve rgb(255, 0, 0)
+	return func(c *gin.Context) {
+
 		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-		// userID := c.Param("userid")
 		sel := bson.M{"devices.JWT": token}
 
 		var user store.User
@@ -164,79 +211,73 @@ func (restClient *RestClient) getAddresses() gin.HandlerFunc {
 			return
 		}
 
-		userWallets := map[int]DisplayWallet{}
-
-		for k, v := range user.Wallets {
-			userWallets[k] = DisplayWallet{v.Chain, v.Adresses}
-		}
-
 		c.JSON(http.StatusOK, gin.H{
-			"userWallets": userWallets,
+			"userWallets": user.Wallets,
 		})
 	}
 }
 
-/*
-var getExchangePrice = func(c *gin.Context) { //recieve rgb(255, 0, 0)
+func (restClient *RestClient) getExchangePrice() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		from := strings.ToUpper(c.Param("from"))
+		to := strings.ToUpper(c.Param("to"))
 
-	from := strings.ToUpper(c.Param("from"))
-	to := strings.ToUpper(c.Param("to"))
+		url := "https://min-api.cryptocompare.com/data/price?fsym=" + from + "&tsyms=" + to
+		var er map[string]interface{}
+		makeRequest(c, url, &er)
 
-	url := "https://min-api.cryptocompare.com/data/price?fsym=" + from + "&tsyms=" + to
-	var er map[string]interface{}
-	makeRequest(c, url, &er)
-
-	c.JSON(http.StatusOK, gin.H{
-		to: er[to],
-	})
-
-}
-
-var getAssetsInfo = func(c *gin.Context) { // recieve rgb(0, 255, 0)
-	token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-	dv := getaddresses(c, token)
-	assets := map[int]int{} // name of wallet to total ballance
-	excPrice := map[string]float64{}
-	for name, as := range dv {
-		switch as.Chain {
-		case types.String(types.Bitcoin):
-			for _, addr := range as.Adresses {
-				assets[name] += getadressbalance(c, addr.Address, 1)
-			}
-		case types.String(types.Ether):
-			for _, addr := range as.Adresses {
-				assets[name] += getadressbalance(c, addr.Address, 2)
-			}
-		default:
-			fmt.Println(strings.ToUpper(as.Chain))
-		}
+		c.JSON(http.StatusOK, gin.H{
+			to: er[to],
+		})
 	}
-	excPrice["BTC"] = getexchangeprice(c, "BTC", "USD")
-	excPrice["ETH"] = getexchangeprice(c, "ETH", "USD")
-
-	c.JSON(http.StatusOK, gin.H{
-		"wallets":       dv,
-		"ballances":     assets,
-		"exchangePrice": excPrice,
-	})
 }
 
-var getActivities = func(c *gin.Context) { // следующий спринт
+// var getAssetsInfo = func(c *gin.Context) { // recieve rgb(255, 0, 0)
+// 	token := strings.Split(c.GetHeader("Authorization"), " ")[1]
+// 	dv := getaddresses(c, token)
+// 	assets := map[int]int{} // name of wallet to total ballance
+// 	excPrice := map[string]float64{}
+// 	for name, as := range dv {
+// 		switch as.Chain {
+// 		case currencies.String(currencies.Bitcoin):
+// 			for _, addr := range as.Adresses {
+// 				assets[name] += getadressbalance(c, addr.Address, 1)
+// 			}
+// 		case currencies.String(currencies.Ether):
+// 			for _, addr := range as.Adresses {
+// 				assets[name] += getadressbalance(c, addr.Address, 2)
+// 			}
+// 		default:
+// 			fmt.Println(strings.ToUpper(as.Chain))
+// 		}
+// 	}
+// 	excPrice["BTC"] = getexchangeprice(c, "BTC", "USD")
+// 	excPrice["ETH"] = getexchangeprice(c, "ETH", "USD")
+//
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"wallets":       dv,
+// 		"ballances":     assets,
+// 		"exchangePrice": excPrice,
+// 	})
+// }
 
-}
+// var getActivities = func(c *gin.Context) { // следующий спринт
+//
+// }
+func (restClient *RestClient) getTransactionInfo() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		txid := c.Param("txid")
+		url := "https://bitaps.com/api/transaction/" + txid
+		response, err := http.Get(url)
+		responseErr(c, err, http.StatusServiceUnavailable) // 503
 
-var getTransactionInfo = func(c *gin.Context) {
-	txid := c.Param("txid")
-	url := "https://bitaps.com/api/transaction/" + txid
-	response, err := http.Get(url)
-	responseErr(c, err, http.StatusServiceUnavailable) // 503
+		data, err := ioutil.ReadAll(response.Body)
+		responseErr(c, err, http.StatusInternalServerError) // 500
 
-	data, err := ioutil.ReadAll(response.Body)
-	responseErr(c, err, http.StatusInternalServerError) // 500
-
-	c.Writer.WriteHeader(http.StatusOK)
-	c.Writer.Header().Set("Content-Type", "application/json")
-	c.Writer.Write(data)
+		c.Writer.WriteHeader(http.StatusOK)
+		c.Writer.Header().Set("Content-Type", "application/json")
+		c.Writer.Write(data)
+	}
 }
 
 // var deleteWallet = func(c *gin.Context) {
@@ -250,23 +291,21 @@ var getTransactionInfo = func(c *gin.Context) {
 // 	update := bson.M{"$push": bson.M{"wallets": wallet}}
 //
 // }
-*/
 
 func (restClient *RestClient) addWallet() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-		userID := c.Param("userid")
 
 		var wp WalletParams
 		decodeBody(c, &wp)
-		wallet := createWallet(types.String(wp.Currency), wp.Address, wp.AddressID)
+		wallet := createWallet(currencies.String(wp.Currency), wp.Address, wp.AddressID, wp.WalletID)
 
-		sel := bson.M{"devices.JWT": token, "userID": userID}
+		sel := bson.M{"devices.JWT": token}
 		update := bson.M{"$push": bson.M{"wallets": wallet}}
 
 		restClient.m.Lock()
-		defer restClient.m.Unlock()
 		err := restClient.userStore.Update(sel, update)
+		restClient.m.Unlock()
 		responseErr(c, err, http.StatusInternalServerError) // 500
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -279,17 +318,22 @@ func (restClient *RestClient) addWallet() gin.HandlerFunc {
 func (restClient *RestClient) addAddress() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-		userID := c.Param("userid")
 
 		var sw selectWallet
 		decodeBody(c, &sw)
 
-		sel := bson.M{"wallets.name": sw.Name, "userID": userID, "devices.JWT": token}
-		update := bson.M{"$push": bson.M{"wallets.$.adresses": sw.Address}}
+		addr := Address{
+			Address:   sw.Address,
+			AddressID: sw.AddressID,
+		}
+
+		sel := bson.M{"wallets.walletid": sw.WalletID, "devices.JWT": token}
+		update := bson.M{"$push": bson.M{"wallets.$.adresses": addr}}
 
 		restClient.m.Lock()
-		defer restClient.m.Unlock()
 		err := restClient.userStore.Update(sel, update)
+		restClient.m.Unlock()
+
 		responseErr(c, err, http.StatusInternalServerError) // 500
 
 		c.JSON(http.StatusOK, gin.H{
@@ -299,32 +343,32 @@ func (restClient *RestClient) addAddress() gin.HandlerFunc {
 	}
 }
 
-/*
-var sendTransaction = func(c *gin.Context) {
-	curID := c.Param("curid")
-	i, err := strconv.Atoi(curID)
-	if err != nil {
-		i = 1337 // err
+func (restClient *RestClient) sendTransaction() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		curID := c.Param("curid")
+		i, err := strconv.Atoi(curID)
+		if err != nil {
+			i = 1337 // err
+		}
+
+		switch i {
+		case currencies.Bitcoin:
+			var tx Tx
+			decodeBody(c, &tx)
+			txid, err := restClient.rpcClient.SendCyberRawTransaction(tx.Transaction, tx.AllowHighFees)
+			responseErr(c, err, http.StatusInternalServerError) // 500
+
+			c.JSON(http.StatusOK, gin.H{
+				"txid": txid,
+			})
+
+		case currencies.Ether:
+			//not implemented yet
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": http.StatusText(http.StatusBadRequest),
+			})
+		}
 	}
-
-	switch i {
-	case types.Bitcoin:
-		var tx Tx
-		decodeBody(c, &tx)
-		txid, err := restClient.SendCyberRawTransaction(tx.Transaction, tx.AllowHighFees)
-		responseErr(c, err, http.StatusInternalServerError) // 500
-
-		c.JSON(http.StatusOK, gin.H{
-			"txid": txid,
-		})
-
-	case types.Ether:
-		//not implemented yet
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    http.StatusBadRequest,
-			"message": http.StatusText(http.StatusBadRequest),
-		})
-	}
-
-}*/
+}

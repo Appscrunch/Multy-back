@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"time"
 
+	"github.com/Appscrunch/Multy-back/store"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,4 +37,34 @@ func makeRequest(c *gin.Context, url string, to interface{}) {
 
 	err = json.Unmarshal(data, to)
 	responseErr(c, err, http.StatusInternalServerError) // 500
+}
+
+func createUser(userid string, device []store.Device, wallets []store.Wallet) store.User {
+	return store.User{
+		UserID:  userid,
+		Devices: device,
+		Wallets: wallets,
+	}
+}
+
+func createDevice(deviceid, ip, jwt string) store.Device {
+	return store.Device{
+		DeviceID:       deviceid,
+		JWT:            jwt,
+		LastActionIP:   ip,
+		LastActionTime: time.Now(),
+	}
+}
+
+func createWallet(chain, address, addressID, walletID string) store.Wallet {
+	return store.Wallet{
+		Chain:    chain,
+		WalletID: walletID,
+		Adresses: []store.Address{
+			store.Address{
+				Address:   address,
+				AddressID: addressID,
+			},
+		},
+	}
 }

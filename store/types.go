@@ -17,10 +17,16 @@ type Device struct {
 	LastActionIP   string    `bson:"lastActionIP"`   // IP from last session
 }
 
-// Wallet Specifies a concrete wallet of user
+// Wallet Specifies a concrete wallet of user.
 type Wallet struct {
-	Chain    string    `bson:"chain"`    // Currency of wallet
-	Adresses []Address `bson:"adresses"` // All addresses assigned to this wallet
+	// Currency of wallet.
+	Chain string `bson:"chain"`
+
+	//wallet identifier
+	WalletID string `bson:"walletid"`
+
+	// All addresses assigned to this wallet.
+	Adresses []Address `bson:"adresses"`
 }
 
 type Address struct {
