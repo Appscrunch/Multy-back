@@ -22,34 +22,25 @@ const (
 )
 
 func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
-	if _, ok := headers["userID"]; !ok {
-		return nil, fmt.Errorf("wrong userID header")
-	}
-	userID := headers["userID"]
-	if len(userID[0]) == 0 {
+	userID := headers.Get("userID")
+	if len(userID) == 0 {
 		return nil, fmt.Errorf("wrong userID header")
 	}
 
-	if _, ok := headers["deviceType"]; !ok {
-		return nil, fmt.Errorf("wrong deviceType header")
-	}
-	deviceType := headers["deviceType"]
-	if len(userID[0]) == 0 {
+	deviceType := headers.Get("deviceType")
+	if len(deviceType) == 0 {
 		return nil, fmt.Errorf("wrong deviceType header")
 	}
 
-	if _, ok := headers["jwtToken"]; !ok {
-		return nil, fmt.Errorf("wrong jwtToken header")
-	}
-	jwtToken := headers["jwtToken"]
-	if len(userID[0]) == 0 {
+	jwtToken := headers.Get("jwtToken")
+	if len(jwtToken) == 0 {
 		return nil, fmt.Errorf("wrong jwtToken header")
 	}
 
 	return &SocketIOUser{
-		userID:     userID[0],
-		deviceType: deviceType[0],
-		jwtToken:   jwtToken[0],
+		userID:     userID,
+		deviceType: deviceType,
+		jwtToken:   jwtToken,
 	}, nil
 }
 
