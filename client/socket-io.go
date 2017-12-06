@@ -8,6 +8,9 @@ import (
 	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/gin-gonic/gin"
 	socketio "github.com/googollee/go-socket.io"
+	"github.com/graarh/golang-socketio/transport"
+
+	"github.com/graarh/golang-socketio"
 )
 
 const (
@@ -18,65 +21,68 @@ const (
 	deviceTypeAndroid = "android"
 )
 
-type SocketIONotifyMessage struct {
-	TransactionType string `json:"transactionType"`
-	Amount          int64  `json:"amount"`
-	TxID            int64  `json:"txid"`
-}
-
-type SocketIOIdentifyer struct {
-	userID     string
-	deviceType string
-	jwtToken   []byte
-}
-
-/*func getHeaderDataSocketIO(headers http.Header) (*SocketIOIdentifyer, error) {
-	if _, ok := headers[""]
-	return nil, nil
-}*/
-
-func SetSocketIOHandlers(r *gin.RouterGroup, clients *ConnectedPool) (*socketio.Server, error) {
-	server, err := socketio.NewServer(nil)
-	if err != nil {
-		log.Fatal(err)
+func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
+	if _, ok := headers["userID"]; !ok {
+		return nil, fmt.Errorf("wrong userID header")
+	}
+	userID := headers["userID"]
+	if len(userID[0]) == 0 {
+		return nil, fmt.Errorf("wrong userID header")
 	}
 
-	server.OnConnect("/", func(s socketio.Conn) error {
-		s.SetContext("")
-		fmt.Println("connected:", s.ID())
-		//userIdentificator, err := getHeaderDataSocketIO(s.RemoteHeader())
-		/*	for _, h := range headers {
-			log.Printf("DEBUG header %+v\n", h)
-		}*/
-		connectionID := s.ID()
-		connCh := make(chan btc.BtcTransaction, 0)
+	if _, ok := headers["deviceType"]; !ok {
+		return nil, fmt.Errorf("wrong deviceType header")
+	}
+	deviceType := headers["deviceType"]
+	if len(userID[0]) == 0 {
+		return nil, fmt.Errorf("wrong deviceType header")
+	}
 
-		// TODO: from connection header
-		clientID := "clientID"
+	if _, ok := headers["jwtToken"]; !ok {
+		return nil, fmt.Errorf("wrong jwtToken header")
+	}
+	jwtToken := headers["jwtToken"]
+	if len(userID[0]) == 0 {
+		return nil, fmt.Errorf("wrong jwtToken header")
+	}
 
-		newConn := newClient(connectionID, []byte("data"), connCh, s)
-		clients.AddClient(connectionID, newConn)
-		go newConn.listenBTC()
+	return &SocketIOUser{
+		userID:     userID[0],
+		deviceType: deviceType[0],
+		jwtToken:   jwtToken[0],
+	}, nil
+}
 
-		clients.AddClient(clientID, newConn)
+func SetSocketIOHandlers(r *gin.RouterGroup, btcCh chan btc.BtcTransactionWithUserID, users *SocketIOConnectedPool) (*socketio.Server, error) {
+	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
 
-		return nil
+	server.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
+		fmt.Println("connected:", c.Id())
+		userInfo, err := getHeaderDataSocketIO(c.RequestHeader())
+		if err != nil {
+			log.Printf("[ERR] get socketio headers: %s\n", err.Error())
+			return
+		}
+
+		connectionID := c.Id()
+		userID := userInfo.userID
+
+		newConn := newSocketIOUser(connectionID, userInfo, btcCh, c)
+		users.AddUserConn(userID, newConn)
+
+		return
 	})
 
-	server.OnError("/", func(e error) {
-		fmt.Println("meet error:", e)
-	})
-	server.OnDisconnect("/", func(s socketio.Conn, msg string) {
-		fmt.Println("closed", msg)
+	server.On(gosocketio.OnDisconnection, func(c *gosocketio.Channel) {
+		log.Println("Disconnected")
 	})
 
-	go server.Serve()
-	defer server.Close()
+	serveMux := http.NewServeMux()
+	serveMux.Handle("/socket.io/", server)
 
-	http.Handle("/socket.io/", server)
-
+	log.Println("Starting server...")
 	go func() {
-		http.ListenAndServe("0.0.0.0:7779", nil)
+		log.Panic(http.ListenAndServe("0.0.0.0:7778", serveMux))
 	}()
 	return nil, nil
 }
