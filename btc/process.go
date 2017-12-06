@@ -198,9 +198,43 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 	// memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs
 
 	var user store.User
+
 	for _, input := range memPoolTx.inputs {
 		for _, address := range input.address {
 			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
+			if user.Wallets != nil {
+				chToClient <- CreateBtcTransactionWithUserID(user.UserID, txIn, memPoolTx.hash, input.amount)
+				// add UserID related tx's to db
+				rec := newTxInfo(txIn, memPoolTx.hash, address, input.amount)
+				sel := bson.M{"userID": user.UserID}
+				update := bson.M{"$push": bson.M{"transactions": rec}}
+				err := usersData.Update(sel, update)
+				if err != nil {
+					fmt.Println(err)
+				}
+				// TODO: parse block
+			}
+			user = store.User{}
+		}
+	}
+
+	for _, output := range memPoolTx.outputs {
+		for _, address := range output.address {
+			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
+			if user.Wallets != nil {
+				chToClient <- CreateBtcTransactionWithUserID(user.UserID, txOut, memPoolTx.hash, output.amount)
+				// add UserID related tx's to db
+
+				rec := newTxInfo(txOut, memPoolTx.hash, address, output.amount)
+				sel := bson.M{"userID": user.UserID}
+				update := bson.M{"$push": bson.M{"transactions": rec}}
+				err := usersData.Update(sel, update)
+				if err != nil {
+					fmt.Println(err)
+				}
+				// TODO: parse block
+			}
+			user = store.User{}
 		}
 	}
 
@@ -219,6 +253,16 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 	log.Printf("New Multy MemPool Size is: %d", len(memPool))
 	return nil
 }
+func CreateBtcTransactionWithUserID(userId, txType, txId string, amount float64) BtcTransactionWithUserID {
+	return BtcTransactionWithUserID{
+		UserID: userId,
+		NotificationMsg: &BtcTransaction{
+			TransactionType: txType,
+			Amount:          amount,
+			TxID:            txId,
+		},
+	}
+}
 
 func newRecord(category int, hashTX string) Record {
 	return Record{
@@ -230,6 +274,22 @@ func newRecord(category int, hashTX string) Record {
 type Record struct {
 	Category int    `json:"category"`
 	HashTX   string `json:"hashTX"`
+}
+
+func newTxInfo(txType, txHash, address string, amount float64) TxInfo {
+	return TxInfo{
+		Type:    txType,
+		TxHash:  txHash,
+		Address: address,
+		Amount:  amount,
+	}
+}
+
+type TxInfo struct {
+	Type    string  `json:"type"`
+	TxHash  string  `json:"txhash"`
+	Address string  `json:"address"`
+	Amount  float64 `json:"amount"`
 }
 
 var (
@@ -280,6 +340,8 @@ func getNewBlock(hash *chainhash.Hash) {
 	if err != nil {
 		log.Println("ERR GetBlock:", err.Error())
 	}
+
+	// -------tx speed remover on block
 	hs, err := blockMSG.TxHashes()
 	if err != nil {
 		fmt.Println(err)
@@ -289,6 +351,20 @@ func getNewBlock(hash *chainhash.Hash) {
 		if err != nil {
 			fmt.Println(err)
 		}
+	}
+
+	// -------tracker
+	var user store.UserExtended
+	for _, tx := range blockMSG.Transactions {
+		usersData.Find(bson.M{"transactions.txhash": tx.TxHash().String()}).One(&user)
+		if user.Wallets != nil {
+			for _, userTx := range user.Transactions {
+				if userTx.TxHash == tx.TxHash().String() {
+					chToClient <- CreateBtcTransactionWithUserID(user.UserID, userTx.Type+"block", tx.TxHash().String(), userTx.Amount)
+				}
+			}
+		}
+		user = store.UserExtended{}
 	}
 
 	for _, tx := range blockMSG.Transactions {

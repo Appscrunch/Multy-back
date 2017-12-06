@@ -9,6 +9,20 @@ type User struct {
 	Wallets []Wallet `bson:"wallets"` // All user adresses in all chains
 }
 
+type UserExtended struct {
+	UserID       string   `bson:"userID"`  // User uqnique identifier
+	Devices      []Device `bson:"devices"` // All user devices
+	Wallets      []Wallet `bson:"wallets"` // All user adresses in all chains
+	Transactions []TxInfo `bson:"transactions"`
+}
+
+type TxInfo struct {
+	Type    string  `json:"type"`
+	TxHash  string  `json:"txhash"`
+	Address string  `json:"address"`
+	Amount  float64 `json:"amount"`
+}
+
 // Device represents a single users device.
 type Device struct {
 	DeviceID       string    `bson:"deviceID"`       // Device uqnique identifier (MAC adress of device)
