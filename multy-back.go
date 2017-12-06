@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultServerAddress = "0.0.0.0:8080"
+	defaultServerAddress = "0.0.0.0:1488"
 	version              = "v1"
 )
 
