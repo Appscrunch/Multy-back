@@ -66,17 +66,16 @@ func initMiddlewareJWT(restClient *RestClient) {
 		Timeout:    time.Hour,
 		MaxRefresh: time.Hour,
 		Authenticator: func(userId string, deviceId string, password string, c *gin.Context) (store.User, bool) {
-
 			query := bson.M{"userID": userId}
 
 			user := store.User{}
 
-			err := restClient.userStore.Find(query, &user)
+			err := restClient.userStore.FindUser(query, &user)
 
 			if err != nil || len(user.UserID) == 0 {
+
 				return store.User{}, false
 			}
-
 			return user, true
 		},
 		//Authorizator:  authorizator,
@@ -204,7 +203,7 @@ func (restClient *RestClient) getAddresses() gin.HandlerFunc { //recieve rgb(255
 
 		var user store.User
 
-		restClient.userStore.GetUserByDevice(sel, user)
+		restClient.userStore.GetUserByDevice(sel, &user)
 
 		if user.UserID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
