@@ -1,12 +1,12 @@
 package client
 
 import (
+	"encoding/json"
 	"log"
 	"sync"
 
-	socketio "github.com/googollee/go-socket.io"
-
 	"github.com/Appscrunch/Multy-back/btc"
+	"github.com/graarh/golang-socketio"
 )
 
 type SocketIOConnectedPool struct {
@@ -27,25 +27,43 @@ func InitConnectedPool(btcCh chan btc.BtcTransactionWithUserID) *SocketIOConnect
 }
 
 func (sConnPool *SocketIOConnectedPool) listenBTC() {
-	var newTransaction btc.BtcTransactionWithUserID
+	var newTransactionWithUserID btc.BtcTransactionWithUserID
 
 	for {
 		select {
-		case newTransactionWithUserID := <-sConnPool.btcCh:
-			log.Printf("got new transaction: %+v\n", newTransaction)
-			if _, ok := sConnPool.users[newTransactionWithUserID.UserID]; !ok {
+		case newTransactionWithUserID = <-sConnPool.btcCh:
+			//	log.Printf("got new transaction: %+v\n", newTransactionWithUserID)
+			/*	if _, ok := sConnPool.users[newTransactionWithUserID.UserID]; !ok {
+					break
+				}
+				userID := newTransactionWithUserID.UserID
+				//TODO: with mutex
+				userConns := sConnPool.users[userID].conns
+				log.Printf("userConn=%+v\n", userConns)
+			*/
+			var cc *SocketIOUser
+			for _, c := range sConnPool.users {
+				cc = c
 				break
 			}
-			userID := newTransactionWithUserID.UserID
-			userConns := sConnPool.users[userID].conns
-			for _, conn := range userConns {
-				conn.Emit("newTransaction", newTransaction.NotificationMsg)
+			if cc == nil {
+				break
+			}
+			for _, conn := range cc.conns {
+				//for _, conn := range userConns {
+				log.Println("id=", conn.Id())
+				msgRaw, err := json.Marshal(newTransactionWithUserID.NotificationMsg)
+				if err != nil {
+					break
+				}
+				conn.Emit("/newTransaction", string(msgRaw))
 			}
 		}
 	}
 }
 
 func (sConnPool *SocketIOConnectedPool) AddUserConn(userID string, userObj *SocketIOUser) {
+	log.Println("DEBUG AddUserConn: ", userID)
 	sConnPool.m.Lock()
 	defer sConnPool.m.Unlock()
 
@@ -53,6 +71,7 @@ func (sConnPool *SocketIOConnectedPool) AddUserConn(userID string, userObj *Sock
 }
 
 func (sConnPool *SocketIOConnectedPool) RemoveUserConn(userID string) {
+	log.Println("DEBUG RemoveUserConn: ", userID)
 	sConnPool.m.Lock()
 	defer sConnPool.m.Unlock()
 
@@ -64,11 +83,11 @@ type SocketIOUser struct {
 	deviceType string
 	jwtToken   string
 
-	conns map[string]socketio.Conn
+	conns map[string]*gosocketio.Channel
 }
 
-func newSocketIOUser(id string, connectedUser *SocketIOUser, btcCh chan btc.BtcTransactionWithUserID, conn socketio.Conn) *SocketIOUser {
-	connectedUser.conns = make(map[string]socketio.Conn, 0)
+func newSocketIOUser(id string, connectedUser *SocketIOUser, btcCh chan btc.BtcTransactionWithUserID, conn *gosocketio.Channel) *SocketIOUser {
+	connectedUser.conns = make(map[string]*gosocketio.Channel, 0)
 	connectedUser.conns[id] = conn
 
 	return connectedUser

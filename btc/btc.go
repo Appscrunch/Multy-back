@@ -1,7 +1,6 @@
 package btc
 
 import (
-	"log"
 	"time"
 
 	"github.com/btcsuite/btcd/rpcclient"
@@ -22,7 +21,7 @@ func simulateSendNewTransactions() {
 			},
 			UserID: "555",
 		}
-		log.Printf("sending  new transaction: %+v\n", b)
+
 		chToClient <- b
 	}
 }

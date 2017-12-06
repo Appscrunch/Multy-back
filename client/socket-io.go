@@ -8,6 +8,9 @@ import (
 	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/gin-gonic/gin"
 	socketio "github.com/googollee/go-socket.io"
+	"github.com/graarh/golang-socketio/transport"
+
+	"github.com/graarh/golang-socketio"
 )
 
 const (
@@ -51,43 +54,35 @@ func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
 }
 
 func SetSocketIOHandlers(r *gin.RouterGroup, btcCh chan btc.BtcTransactionWithUserID, users *SocketIOConnectedPool) (*socketio.Server, error) {
-	server, err := socketio.NewServer(nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
 
-	server.OnConnect("/", func(s socketio.Conn) error {
-		s.SetContext("")
-		fmt.Println("connected:", s.ID())
-		userInfo, err := getHeaderDataSocketIO(s.RemoteHeader())
+	server.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
+		fmt.Println("connected:", c.Id())
+		userInfo, err := getHeaderDataSocketIO(c.RequestHeader())
 		if err != nil {
 			log.Printf("[ERR] get socketio headers: %s\n", err.Error())
-			return fmt.Errorf("get socketio headers: %s", err.Error())
+			return
 		}
 
-		connectionID := s.ID()
+		connectionID := c.Id()
 		userID := userInfo.userID
 
-		newConn := newSocketIOUser(connectionID, userInfo, btcCh, s)
+		newConn := newSocketIOUser(connectionID, userInfo, btcCh, c)
 		users.AddUserConn(userID, newConn)
 
-		return nil
+		return
 	})
 
-	server.OnError("/", func(err error) {
-		fmt.Println("[ERR] socketio: ", err)
-	})
-	server.OnDisconnect("/", func(s socketio.Conn, msg string) {
-		fmt.Println("closed", msg)
+	server.On(gosocketio.OnDisconnection, func(c *gosocketio.Channel) {
+		log.Println("Disconnected")
 	})
 
-	go server.Serve()
-	defer server.Close()
+	serveMux := http.NewServeMux()
+	serveMux.Handle("/socket.io/", server)
 
-	http.Handle("/socket.io/", server)
-
+	log.Println("Starting server...")
 	go func() {
-		http.ListenAndServe("0.0.0.0:7779", nil)
+		log.Panic(http.ListenAndServe(":7778", serveMux))
 	}()
 	return nil, nil
 }
