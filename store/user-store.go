@@ -19,11 +19,12 @@ const (
 
 type UserStore interface {
 	//GetSession()
-	GetUserByDevice(device bson.M, user User)
-	Update(device bson.M, update interface{}) error
-	Insert(data interface{}) error
-	Find(query bson.M, data interface{}) error
+	GetUserByDevice(device bson.M, user *User)
+	Update(sel, update bson.M) error
+	Insert(user User) error
 	Close() error
+	FindUser(query bson.M, user *User) error
+	UpdateUser(sel bson.M, user *User) error
 }
 
 type MongoUserStore struct {
@@ -32,21 +33,25 @@ type MongoUserStore struct {
 	usersData *mgo.Collection
 }
 
-func (mongo *MongoUserStore) GetUserByDevice(device bson.M, user User) {
-	mongo.usersData.Find(device).One(&user)
+func (mongo *MongoUserStore) UpdateUser(sel bson.M, user *User) error {
+	return mongo.usersData.Update(sel, user)
+}
+
+func (mongo *MongoUserStore) GetUserByDevice(device bson.M, user *User) {
+	mongo.usersData.Find(device).One(user)
 	return
 }
 
-func (mongo *MongoUserStore) Update(sel bson.M, update interface{}) error {
+func (mongo *MongoUserStore) Update(sel, update bson.M) error {
 	return mongo.usersData.Update(sel, update)
 }
 
-func (mongo *MongoUserStore) Find(query bson.M, data interface{}) error {
-	return mongo.usersData.Find(query).One(&data)
+func (mongo *MongoUserStore) FindUser(query bson.M, user *User) error {
+	return mongo.usersData.Find(query).One(user)
 }
 
-func (mongo *MongoUserStore) Insert(data interface{}) error {
-	return mongo.usersData.Insert(data)
+func (mongo *MongoUserStore) Insert(user User) error {
+	return mongo.usersData.Insert(user)
 }
 
 func InitUserStore(address string) (UserStore, error) {

@@ -72,6 +72,7 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 		}
 
 		user, ok := restClient.middlewareJWT.Authenticator(loginVals.Username, loginVals.DeviceID, loginVals.Password, c) // user can be empty
+
 		userID := user.UserID
 
 		if len(userID) == 0 {
@@ -123,7 +124,7 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 
 				// IDEA: speed improvmet: refresh several fields but not full object.
 				sel := bson.M{"userID": userID}
-				err = restClient.userStore.Update(sel, user)
+				err = restClient.userStore.UpdateUser(sel, &user)
 
 				responseErr(c, err, http.StatusInternalServerError) // 500
 
