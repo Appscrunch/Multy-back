@@ -3,6 +3,7 @@ package btc
 import (
 	"fmt"
 
+	"github.com/Appscrunch/Multy-back/store"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
@@ -50,15 +51,36 @@ type rpcClientWrapper struct {
 	*rpcclient.Client
 }
 
+var usersData *mgo.Collection
+
 var connCfg = &rpcclient.ConnConfig{
-	Host:         "192.168.0.121:18334",
-	User:         "multy",
-	Pass:         "multy",
-	Endpoint:     "ws",
-	Certificates: []byte(`testsert`),
+	Host:     "192.168.0.121:18334",
+	User:     "multy",
+	Pass:     "multy",
+	Endpoint: "ws",
+	Certificates: []byte(`-----BEGIN CERTIFICATE-----
+MIICPDCCAZ2gAwIBAgIQf8XOycg2EQ8wHpXsZJSy7jAKBggqhkjOPQQDBDAjMREw
+DwYDVQQKEwhnZW5jZXJ0czEOMAwGA1UEAxMFYW50b24wHhcNMTcxMTI2MTY1ODQ0
+WhcNMjcxMTI1MTY1ODQ0WjAjMREwDwYDVQQKEwhnZW5jZXJ0czEOMAwGA1UEAxMF
+YW50b24wgZswEAYHKoZIzj0CAQYFK4EEACMDgYYABAGuHzCFKsJwlFwmtx5QMT/r
+YJ/ap9E2QlUsCnMUCn1ho0wLJkpIgNQWs1zcaKTMGZNpwwLemCHke9sX06h/MdAG
+CwGf1CY5kafyl7dTTlmD10sBA7UD1RXDjYnmYQhB1Z1MUNXKWXe4jCv7DnWmFEnc
++s5N1NXJx1PNzx/EcsCkRJcMraNwMG4wDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB
+/wQFMAMBAf8wSwYDVR0RBEQwQoIFYW50b26CCWxvY2FsaG9zdIcEfwAAAYcQAAAA
+AAAAAAAAAAAAAAAAAYcEwKgAeYcQ/oAAAAAAAAByhcL//jB99jAKBggqhkjOPQQD
+BAOBjAAwgYgCQgCfs9tYHA1nvU5HSdNeHSZCR1WziHYuZHmGE7eqAWQjypnVbFi4
+pccvzDFvESf8DG4FVymK4E2T/RFnD9qUDiMzPQJCATkCMzSKcyYlsL7t1ZgQLwAK
+UpQl3TYp8uTf+UWzBz0uoEbB4CFeE2G5ZzrVK4XWZK615sfVFSorxHOOZaLwZEEL
+-----END CERTIFICATE-----`),
 }
 
-func RunProcess(db mgo.Session) error {
+func RunProcess() error {
+	fmt.Println("from run process")
+
+	db, err := mgo.Dial("localhost")
+	fmt.Println(err)
+	usersData = db.DB("cyberkek").C("users")
+
 	mempoolRates = db.DB("BTCMempool").C("Rates")
 	//time.Sleep(time.Second)
 
@@ -94,8 +116,7 @@ func RunProcess(db mgo.Session) error {
 		},
 	}
 
-	var err error
-	rpcClient, err := rpcclient.New(connCfg, &ntfnHandlers)
+	rpcClient, err = rpcclient.New(connCfg, &ntfnHandlers)
 	if err != nil {
 		log.Println("ERR pcclient.New: ", err.Error())
 		return err
@@ -175,6 +196,13 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 
 	// log.Printf("\n **************************** Multy-New Tx Found *******************\n hash: %s, id: %s \n amount: %f , fee: %f , feeRate: %d \n Inputs: %v \n OutPuts: %v \n ****************************Multy-the best wallet*******************", memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs)
 	// memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs
+
+	var user store.User
+	for _, input := range memPoolTx.inputs {
+		for _, address := range input.address {
+			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
+		}
+	}
 
 	rec := newRecord(int(memPoolTx.feeRate), memPoolTx.hash)
 
