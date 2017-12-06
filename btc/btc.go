@@ -9,7 +9,7 @@ import (
 // Dirty hack - this will be wrapped to a struct
 var (
 	rpcClient  = &rpcclient.Client{}
-	chToClient chan BtcTransactionWithUserID
+	chToClient chan BtcTransactionWithUserID // a channel for sending data to client
 )
 
 func simulateSendNewTransactions() {
