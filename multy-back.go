@@ -21,65 +21,69 @@ const (
 // Multy is a main struct of service
 type Multy struct {
 	config     *Configuration
-	clientPool *client.ConnectedPool
+	clientPool *client.SocketIOConnectedPool
 	//dataStore  store.DataStore
 	//memPool    store.DataStore
 	userStore store.UserStore
 	route     *gin.Engine
 
+	btcClientCh chan btc.BtcTransactionWithUserID
+
 	socketIO   *socketio.Server
-	rpcClient  *rpcclient.Client
+	btcClient  *rpcclient.Client
 	restClient *client.RestClient
 }
 
 // Init initializes Multy instance
 func Init(conf *Configuration) (*Multy, error) {
-	m := &Multy{
-		config:     conf,
-		clientPool: client.InitConnectedPool(),
+	multy := &Multy{
+		config: conf,
 	}
 
 	userStore, err := store.InitUserStore(conf.DataStoreAddress)
 	if err != nil {
 		return nil, err
 	}
-	m.userStore = userStore
+	multy.userStore = userStore
 
 	// TODO: add channels for communitation
 	log.Println("[DEBUG] InitHandlers")
-	rpcClient, err := btc.InitHandlers()
+	btcClient, btcClientCh, err := btc.InitHandlers()
 	if err != nil {
 		return nil, fmt.Errorf("blockchain api initialization: %s", err.Error())
 	}
-	m.rpcClient = rpcClient
+	multy.btcClient = btcClient
+	multy.btcClientCh = btcClientCh
 
-	if err = m.initRoute(conf.Address); err != nil {
+	multy.clientPool = client.InitConnectedPool(btcClientCh)
+
+	if err = multy.initRoute(conf.Address); err != nil {
 		return nil, fmt.Errorf("router initialization: %s", err.Error())
 	}
 
 	log.Println("[DEBUG] init done")
-	return m, nil
+	return multy, nil
 }
 
-func (m *Multy) initRoute(address string) error {
+func (multy *Multy) initRoute(address string) error {
 	router := gin.Default()
 
 	gin.SetMode(gin.DebugMode)
 
 	socketIORoute := router.Group("/socketio")
-	socketIOServer, err := client.SetSocketIOHandlers(socketIORoute, m.clientPool)
+	socketIOServer, err := client.SetSocketIOHandlers(socketIORoute, multy.btcClientCh, multy.clientPool)
 	if err != nil {
 		return err
 	}
 
-	m.route = router
-	m.socketIO = socketIOServer
+	multy.route = router
+	multy.socketIO = socketIOServer
 
-	restClient, err := client.SetRestHandlers(m.userStore, router, m.rpcClient)
+	restClient, err := client.SetRestHandlers(multy.userStore, router, multy.btcClient)
 	if err != nil {
 		return err
 	}
-	m.restClient = restClient
+	multy.restClient = restClient
 
 	return nil
 }

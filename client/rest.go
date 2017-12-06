@@ -24,6 +24,7 @@ type RestClient struct {
 }
 
 func SetRestHandlers(userDB store.UserStore, r *gin.Engine, clientRPC *rpcclient.Client) (*RestClient, error) {
+
 	restClient := &RestClient{
 		userStore: userDB,
 		rpcClient: clientRPC,

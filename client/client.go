@@ -9,62 +9,67 @@ import (
 	"github.com/Appscrunch/Multy-back/btc"
 )
 
-type ConnectedPool struct {
-	clients map[string]*Client // socketio connections by client id
-	m       *sync.RWMutex
+type SocketIOConnectedPool struct {
+	users map[string]*SocketIOUser // socketio connections by client id
+	m     *sync.RWMutex
+
+	btcCh chan btc.BtcTransactionWithUserID
 }
 
-func InitConnectedPool() *ConnectedPool {
-	return &ConnectedPool{
-		m:       &sync.RWMutex{},
-		clients: make(map[string]*Client, 0),
+func InitConnectedPool(btcCh chan btc.BtcTransactionWithUserID) *SocketIOConnectedPool {
+	pool := &SocketIOConnectedPool{
+		m:     &sync.RWMutex{},
+		users: make(map[string]*SocketIOUser, 0),
+		btcCh: btcCh,
 	}
+	go pool.listenBTC()
+	return pool
 }
 
-func (cp *ConnectedPool) AddClient(clientID string, clientObj *Client) {
-	cp.m.Lock()
-	defer cp.m.Unlock()
-
-	(cp.clients[clientID]) = clientObj
-}
-
-func (cp *ConnectedPool) RemoveClient(clientID string) {
-	cp.m.Lock()
-	defer cp.m.Unlock()
-
-	delete(cp.clients, clientID)
-}
-
-// Client is a struct with client data
-type Client struct {
-	clientID int64
-	token    string
-	wsConns  map[string]socketio.Conn //connections by connection ID
-
-	btcCh chan btc.BtcTransaction
-}
-
-func newClient(id string, rawData []byte, connCh chan btc.BtcTransaction, conn socketio.Conn) *Client {
-	// TODO: add marshaling data from connection
-	// client id, device id, etc
-	newClient := &Client{
-		clientID: 1234,
-		wsConns:  make(map[string]socketio.Conn, 0),
-	}
-	newClient.wsConns[id] = conn
-	return newClient
-}
-
-func (c *Client) listenBTC() {
-	var newTransaction btc.BtcTransaction
+func (sConnPool *SocketIOConnectedPool) listenBTC() {
+	var newTransaction btc.BtcTransactionWithUserID
 
 	for {
 		select {
-		case newTransaction = <-c.btcCh:
+		case newTransactionWithUserID := <-sConnPool.btcCh:
 			log.Printf("got new transaction: %+v\n", newTransaction)
-			for _, conn := range c.wsConns {
-				conn.Emit("newTransaction", newTransaction)
+			if _, ok := sConnPool.users[newTransactionWithUserID.UserID]; !ok {
+				break
+			}
+			userID := newTransactionWithUserID.UserID
+			userConns := sConnPool.users[userID].conns
+			for _, conn := range userConns {
+				conn.Emit("newTransaction", newTransaction.NotificationMsg)
 			}
 		}
 	}
+}
+
+func (sConnPool *SocketIOConnectedPool) AddUserConn(userID string, userObj *SocketIOUser) {
+	sConnPool.m.Lock()
+	defer sConnPool.m.Unlock()
+
+	(sConnPool.users[userID]) = userObj
+}
+
+func (sConnPool *SocketIOConnectedPool) RemoveUserConn(userID string) {
+	sConnPool.m.Lock()
+	defer sConnPool.m.Unlock()
+
+	delete(sConnPool.users, userID)
+}
+
+type SocketIOUser struct {
+	userID     string
+	deviceType string
+	jwtToken   string
+
+	conns map[string]socketio.Conn
+}
+
+func newSocketIOUser(id string, connectedUser *SocketIOUser, btcCh chan btc.BtcTransactionWithUserID, conn socketio.Conn) *SocketIOUser {
+	connectedUser.conns = make(map[string]socketio.Conn, 0)
+	connectedUser.conns[id] = conn
+
+	return connectedUser
 }

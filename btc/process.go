@@ -46,8 +46,6 @@ type configuration struct {
 
 var memPool []MultyMempoolTx
 
-var rpcClient = &rpcclient.Client{}
-
 type rpcClientWrapper struct {
 	*rpcclient.Client
 }
@@ -97,7 +95,7 @@ func RunProcess(db mgo.Session) error {
 	}
 
 	var err error
-	rpcClient, err = rpcclient.New(connCfg, &ntfnHandlers)
+	rpcClient, err := rpcclient.New(connCfg, &ntfnHandlers)
 	if err != nil {
 		log.Println("ERR pcclient.New: ", err.Error())
 		return err
