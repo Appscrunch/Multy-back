@@ -6,6 +6,11 @@ import (
 	"github.com/btcsuite/btcd/rpcclient"
 )
 
+const (
+	txIn  = "incoming"
+	txOut = "outcoming"
+)
+
 // Dirty hack - this will be wrapped to a struct
 var (
 	rpcClient  = &rpcclient.Client{}
@@ -30,13 +35,14 @@ func InitHandlers() (*rpcclient.Client, chan BtcTransactionWithUserID, error) {
 	chToClient = make(chan BtcTransactionWithUserID, 0)
 	go simulateSendNewTransactions()
 
+	RunProcess()
 	return rpcClient, chToClient, nil
 }
 
 type BtcTransaction struct {
-	TransactionType string `json:"transactionType"`
-	Amount          int64  `json:"amount"`
-	TxID            int64  `json:"txid"`
+	TransactionType string  `json:"transactionType"`
+	Amount          float64 `json:"amount"`
+	TxID            string  `json:"txid"`
 }
 
 type BtcTransactionWithUserID struct {

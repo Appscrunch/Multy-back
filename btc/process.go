@@ -3,6 +3,7 @@ package btc
 import (
 	"fmt"
 
+	"github.com/Appscrunch/Multy-back/store"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
@@ -50,15 +51,36 @@ type rpcClientWrapper struct {
 	*rpcclient.Client
 }
 
+var usersData *mgo.Collection
+
 var connCfg = &rpcclient.ConnConfig{
-	Host:         "192.168.0.121:18334",
-	User:         "multy",
-	Pass:         "multy",
-	Endpoint:     "ws",
-	Certificates: []byte(`testsert`),
+	Host:     "192.168.0.121:18334",
+	User:     "multy",
+	Pass:     "multy",
+	Endpoint: "ws",
+	Certificates: []byte(`-----BEGIN CERTIFICATE-----
+MIICPDCCAZ2gAwIBAgIQf8XOycg2EQ8wHpXsZJSy7jAKBggqhkjOPQQDBDAjMREw
+DwYDVQQKEwhnZW5jZXJ0czEOMAwGA1UEAxMFYW50b24wHhcNMTcxMTI2MTY1ODQ0
+WhcNMjcxMTI1MTY1ODQ0WjAjMREwDwYDVQQKEwhnZW5jZXJ0czEOMAwGA1UEAxMF
+YW50b24wgZswEAYHKoZIzj0CAQYFK4EEACMDgYYABAGuHzCFKsJwlFwmtx5QMT/r
+YJ/ap9E2QlUsCnMUCn1ho0wLJkpIgNQWs1zcaKTMGZNpwwLemCHke9sX06h/MdAG
+CwGf1CY5kafyl7dTTlmD10sBA7UD1RXDjYnmYQhB1Z1MUNXKWXe4jCv7DnWmFEnc
++s5N1NXJx1PNzx/EcsCkRJcMraNwMG4wDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB
+/wQFMAMBAf8wSwYDVR0RBEQwQoIFYW50b26CCWxvY2FsaG9zdIcEfwAAAYcQAAAA
+AAAAAAAAAAAAAAAAAYcEwKgAeYcQ/oAAAAAAAAByhcL//jB99jAKBggqhkjOPQQD
+BAOBjAAwgYgCQgCfs9tYHA1nvU5HSdNeHSZCR1WziHYuZHmGE7eqAWQjypnVbFi4
+pccvzDFvESf8DG4FVymK4E2T/RFnD9qUDiMzPQJCATkCMzSKcyYlsL7t1ZgQLwAK
+UpQl3TYp8uTf+UWzBz0uoEbB4CFeE2G5ZzrVK4XWZK615sfVFSorxHOOZaLwZEEL
+-----END CERTIFICATE-----`),
 }
 
-func RunProcess(db mgo.Session) error {
+func RunProcess() error {
+	fmt.Println("from run process")
+
+	db, err := mgo.Dial("localhost")
+	fmt.Println(err)
+	usersData = db.DB("cyberkek").C("users")
+
 	mempoolRates = db.DB("BTCMempool").C("Rates")
 	//time.Sleep(time.Second)
 
@@ -94,8 +116,7 @@ func RunProcess(db mgo.Session) error {
 		},
 	}
 
-	var err error
-	rpcClient, err := rpcclient.New(connCfg, &ntfnHandlers)
+	rpcClient, err = rpcclient.New(connCfg, &ntfnHandlers)
 	if err != nil {
 		log.Println("ERR pcclient.New: ", err.Error())
 		return err
@@ -176,6 +197,47 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 	// log.Printf("\n **************************** Multy-New Tx Found *******************\n hash: %s, id: %s \n amount: %f , fee: %f , feeRate: %d \n Inputs: %v \n OutPuts: %v \n ****************************Multy-the best wallet*******************", memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs)
 	// memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs
 
+	var user store.User
+
+	for _, input := range memPoolTx.inputs {
+		for _, address := range input.address {
+			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
+			if user.Wallets != nil {
+				chToClient <- CreateBtcTransactionWithUserID(user.UserID, txIn, memPoolTx.hash, input.amount)
+				// add UserID related tx's to db
+				rec := newTxInfo(txIn, memPoolTx.hash, address, input.amount)
+				sel := bson.M{"userID": user.UserID}
+				update := bson.M{"$push": bson.M{"transactions": rec}}
+				err := usersData.Update(sel, update)
+				if err != nil {
+					fmt.Println(err)
+				}
+				// TODO: parse block
+			}
+			user = store.User{}
+		}
+	}
+
+	for _, output := range memPoolTx.outputs {
+		for _, address := range output.address {
+			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
+			if user.Wallets != nil {
+				chToClient <- CreateBtcTransactionWithUserID(user.UserID, txOut, memPoolTx.hash, output.amount)
+				// add UserID related tx's to db
+
+				rec := newTxInfo(txOut, memPoolTx.hash, address, output.amount)
+				sel := bson.M{"userID": user.UserID}
+				update := bson.M{"$push": bson.M{"transactions": rec}}
+				err := usersData.Update(sel, update)
+				if err != nil {
+					fmt.Println(err)
+				}
+				// TODO: parse block
+			}
+			user = store.User{}
+		}
+	}
+
 	rec := newRecord(int(memPoolTx.feeRate), memPoolTx.hash)
 
 	err := mempoolRates.Insert(rec)
@@ -191,6 +253,16 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 	log.Printf("New Multy MemPool Size is: %d", len(memPool))
 	return nil
 }
+func CreateBtcTransactionWithUserID(userId, txType, txId string, amount float64) BtcTransactionWithUserID {
+	return BtcTransactionWithUserID{
+		UserID: userId,
+		NotificationMsg: &BtcTransaction{
+			TransactionType: txType,
+			Amount:          amount,
+			TxID:            txId,
+		},
+	}
+}
 
 func newRecord(category int, hashTX string) Record {
 	return Record{
@@ -202,6 +274,22 @@ func newRecord(category int, hashTX string) Record {
 type Record struct {
 	Category int    `json:"category"`
 	HashTX   string `json:"hashTX"`
+}
+
+func newTxInfo(txType, txHash, address string, amount float64) TxInfo {
+	return TxInfo{
+		Type:    txType,
+		TxHash:  txHash,
+		Address: address,
+		Amount:  amount,
+	}
+}
+
+type TxInfo struct {
+	Type    string  `json:"type"`
+	TxHash  string  `json:"txhash"`
+	Address string  `json:"address"`
+	Amount  float64 `json:"amount"`
 }
 
 var (
@@ -252,6 +340,8 @@ func getNewBlock(hash *chainhash.Hash) {
 	if err != nil {
 		log.Println("ERR GetBlock:", err.Error())
 	}
+
+	// -------tx speed remover on block
 	hs, err := blockMSG.TxHashes()
 	if err != nil {
 		fmt.Println(err)
@@ -261,6 +351,20 @@ func getNewBlock(hash *chainhash.Hash) {
 		if err != nil {
 			fmt.Println(err)
 		}
+	}
+
+	// -------tracker
+	var user store.UserExtended
+	for _, tx := range blockMSG.Transactions {
+		usersData.Find(bson.M{"transactions.txhash": tx.TxHash().String()}).One(&user)
+		if user.Wallets != nil {
+			for _, userTx := range user.Transactions {
+				if userTx.TxHash == tx.TxHash().String() {
+					chToClient <- CreateBtcTransactionWithUserID(user.UserID, userTx.Type+"block", tx.TxHash().String(), userTx.Amount)
+				}
+			}
+		}
+		user = store.UserExtended{}
 	}
 
 	for _, tx := range blockMSG.Transactions {
