@@ -22,8 +22,7 @@ const (
 type Multy struct {
 	config     *Configuration
 	clientPool *client.SocketIOConnectedPool
-	//dataStore  store.DataStore
-	//memPool    store.DataStore
+
 	userStore store.UserStore
 	route     *gin.Engine
 
@@ -52,6 +51,7 @@ func Init(conf *Configuration) (*Multy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("blockchain api initialization: %s", err.Error())
 	}
+	log.Println("[INFO] btc handlers initialization done")
 	multy.btcClient = btcClient
 	multy.btcClientCh = btcClientCh
 
