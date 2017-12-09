@@ -21,11 +21,11 @@ func responseErr(c *gin.Context, err error, code int) {
 	return
 }
 
-func decodeBody(c *gin.Context, to interface{}) {
+func decodeBody(c *gin.Context, to interface{}) error {
 	body := json.NewDecoder(c.Request.Body)
 	err := body.Decode(to)
 	defer c.Request.Body.Close()
-	responseErr(c, err, http.StatusInternalServerError) // 500
+	return err
 }
 
 func makeRequest(c *gin.Context, url string, to interface{}) {

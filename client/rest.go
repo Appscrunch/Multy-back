@@ -1,12 +1,11 @@
 package client
 
 import (
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Appscrunch/Multy-back/currencies"
@@ -14,14 +13,23 @@ import (
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"gopkg.in/mgo.v2/bson"
+)
+
+const (
+	msgErrHeaderError          = "wrong authorization headers"
+	msgErrRequestBodyError     = "missing request body params"
+	msgErrUserNotFound         = "user not found in db"
+	msgErrRatesError           = "internal server error rates"
+	msgErrDecodeWalletIndexErr = "wrong wallet index"
+	msgErrNoSpendableOuts      = "No spendable outputs"
 )
 
 type RestClient struct {
 	middlewareJWT *GinJWTMiddleware
 	userStore     store.UserStore
 	rpcClient     *rpcclient.Client
-	m             *sync.Mutex
 }
 
 func SetRestHandlers(userDB store.UserStore, r *gin.Engine, clientRPC *rpcclient.Client) (*RestClient, error) {
@@ -29,7 +37,6 @@ func SetRestHandlers(userDB store.UserStore, r *gin.Engine, clientRPC *rpcclient
 	restClient := &RestClient{
 		userStore: userDB,
 		rpcClient: clientRPC,
-		m:         &sync.Mutex{},
 	}
 
 	initMiddlewareJWT(restClient)
@@ -106,19 +113,27 @@ func initMiddlewareJWT(restClient *RestClient) {
 
 // ----------createWallet----------
 type WalletParams struct {
-	CurrencyID   int    `json:"currencyID"`
-	Address      string `json:"address"`
-	AddressIndex int    `json:"addressIndex"`
-	WalletIndex  int    `json:"walletIndex"`
-	WalletName   string `json:"walletName"`
+	CurrencyID   int    `json:"currencyID" binding:"required"`
+	Address      string `json:"address" binding:"required"`
+	AddressIndex int    `json:"addressIndex" binding:"required"`
+	WalletIndex  int    `json:"walletIndex" binding:"required"`
+	WalletName   string `json:"walletName" binding:"required"`
 }
 
 // ----------addAddress------------
-// ----------deleteWallet----------
 type SelectWallet struct {
-	WalletIndex  int    `json:"walletIndex"`
-	Address      string `json:"address"`
-	AddressIndex int    `json:"addressIndex"`
+	WalletIndex  int    `json:"walletIndex" binding:"required"`
+	Address      string `json:"address" binding:"required"`
+	AddressIndex int    `json:"addressIndex" binding:"required"`
+}
+
+// ----------getFeeRate----------
+type EstimationSpeeds struct {
+	VerySlow int
+	Slow     int
+	Medium   int
+	Fast     int
+	VeryFast int
 }
 
 // ----------sendTransaction----------
@@ -148,137 +163,233 @@ type AddressEx struct { // extended
 
 func (restClient *RestClient) addWallet() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
+		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
+		if len(authHeader) < 2 {
+			log.Printf("[ERR] addWallet: wrong Authorization header len\t[addr=%s]\n", c.Request.RemoteAddr)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrHeaderError,
+			})
+			return
+		}
+
+		token := authHeader[1]
+
+		var (
+			code    int
+			message string
+		)
 
 		var wp WalletParams
-		decodeBody(c, &wp)
+
+		err := decodeBody(c, &wp)
+		if err != nil {
+			log.Printf("[ERR] addWallet: decodeBody: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+		}
+
+		if c.ShouldBindWith(&wp, binding.JSON) != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrRequestBodyError,
+			})
+			return
+		}
 
 		wallet := createWallet(wp.CurrencyID, wp.Address, wp.AddressIndex, wp.WalletIndex, wp.WalletName)
 
 		sel := bson.M{"devices.JWT": token}
 		update := bson.M{"$push": bson.M{"wallets": wallet}}
 
-		restClient.m.Lock()
-		err := restClient.userStore.Update(sel, update)
-		restClient.m.Unlock()
-		if err != nil {
-			c.JSON(http.StatusCreated, gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err.Error(),
-			})
-			return
+		if err := restClient.userStore.Update(sel, update); err != nil {
+			log.Printf("[ERR] addWallet: restClient.userStore.Update: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+			code = http.StatusBadRequest
+			message = msgErrUserNotFound
+		} else {
+			code = http.StatusOK
+			message = "wallet created"
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"code":    http.StatusCreated,
-			"message": http.StatusText(http.StatusCreated),
+			"code":    code,
+			"message": message,
 		})
+		return
 	}
 }
 
 func (restClient *RestClient) addAddress() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
+		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
+		if len(authHeader) < 2 {
+			log.Printf("[ERR] addAddress: wrong Authorization header len\t[addr=%s]\n", c.Request.RemoteAddr)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrHeaderError,
+			})
+			return
+		}
+
+		token := authHeader[1]
 
 		var sw SelectWallet
-		decodeBody(c, &sw)
+		err := decodeBody(c, &sw)
+		if err != nil {
+			log.Printf("[ERR] addAddress: decodeBody: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+		}
+
+		if c.ShouldBindWith(&sw, binding.JSON) != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrRequestBodyError,
+			})
+			return
+		}
 
 		addr := store.Address{
 			Address:      sw.Address,
 			AddressIndex: sw.AddressIndex,
 		}
 
+		var (
+			code    int
+			message string
+		)
+
 		sel := bson.M{"wallets.walletIndex": sw.WalletIndex, "devices.JWT": token}
 		update := bson.M{"$push": bson.M{"wallets.$.adresses": addr}}
 
-		restClient.m.Lock()
-		err := restClient.userStore.Update(sel, update)
-		restClient.m.Unlock()
-		if err != nil {
-			c.JSON(http.StatusCreated, gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err.Error(),
-			})
-			return
+		if err = restClient.userStore.Update(sel, update); err != nil {
+			log.Printf("[ERR] addAddress: restClient.userStore.Update: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+			code = http.StatusBadRequest
+			message = msgErrUserNotFound
+		} else {
+			code = http.StatusOK
+			message = "address added"
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"code":    http.StatusOK,
-			"message": http.StatusText(http.StatusOK),
+			"code":    code,
+			"message": message,
 		})
 	}
 }
 
 func (restClient *RestClient) getWallets() gin.HandlerFunc { //recieve rgb(255, 0, 0)
 	return func(c *gin.Context) {
-
-		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-		sel := bson.M{"devices.JWT": token}
-
 		var user store.User
 
-		err := restClient.userStore.FindUser(sel, &user)
-
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"code":    http.StatusNotFound,
-				"message": err.Error(),
+		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
+		if len(authHeader) < 2 {
+			log.Printf("[ERR] getWallets: wrong Authorization header len\t[addr=%s]\n", c.Request.RemoteAddr)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":        http.StatusBadRequest,
+				"message":     msgErrHeaderError,
+				"userWallets": user,
 			})
-		} else {
-			c.JSON(http.StatusOK, gin.H{
-				"userWallets": user.Wallets,
-			})
+			return
 		}
+
+		token := authHeader[1]
+
+		var (
+			code    int
+			message string
+		)
+
+		sel := bson.M{"devices.JWT": token}
+		if err := restClient.userStore.FindUser(sel, &user); err != nil {
+			log.Printf("[ERR] getWallets: restClient.userStore.FindUser: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+			code = http.StatusBadRequest
+			message = msgErrUserNotFound
+		} else {
+			code = http.StatusOK
+			message = http.StatusText(http.StatusOK)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"code":        code,
+			"message":     message,
+			"userWallets": user.Wallets,
+		})
 
 	}
 }
+
 func (restClient *RestClient) getFeeRate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		var rates []store.RatesRecord
+		var sp EstimationSpeeds
 		speeds := []int{
 			1, 2, 3, 4, 5,
 		}
-		err := restClient.userStore.GetAllRates("category", &rates)
-
-		fmt.Println(rates)
-		if err != nil {
+		if err := restClient.userStore.GetAllRates("category", &rates); err != nil {
 			c.JSON(http.StatusOK, gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err.Error(),
-			})
-		} else {
-			c.JSON(http.StatusOK, gin.H{
-				"VerySlow": rates[speeds[0]].Category,
-				"Slow":     rates[speeds[1]].Category,
-				"Medium":   rates[speeds[2]].Category,
-				"Fast":     rates[speeds[3]].Category,
-				"VeryFast": rates[speeds[4]].Category,
+				"speeds":  sp,
+				"code":    http.StatusInternalServerError,
+				"message": msgErrRatesError,
 			})
 		}
+
+		sp = EstimationSpeeds{
+			VerySlow: rates[speeds[0]].Category,
+			Slow:     rates[speeds[1]].Category,
+			Medium:   rates[speeds[2]].Category,
+			Fast:     rates[speeds[3]].Category,
+			VeryFast: rates[speeds[4]].Category,
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"speeds":  sp,
+			"code":    http.StatusOK,
+			"message": http.StatusText(http.StatusOK),
+		})
 
 	}
 }
 
 func (restClient *RestClient) getSpendableOutputs() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		walletIndex, _ := strconv.Atoi(c.Param("walletIndex"))
-		token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-
-		var user store.User
-
-		sel := bson.M{"devices.JWT": token, "wallets.walletIndex": walletIndex}
-
-		err := restClient.userStore.FindUser(sel, &user)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
+		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
+		if len(authHeader) < 2 {
+			log.Printf("[ERR] getSpendableOutputs: wrong Authorization header len\t[addr=%s]\n", c.Request.RemoteAddr)
+			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
-				"message": err.Error(),
+				"message": msgErrHeaderError,
 			})
 			return
 		}
 
+		token := authHeader[1]
+
 		outWallet := store.Wallet{}
+
+		walletIndex, err := strconv.Atoi(c.Param("walletIndex"))
+		if err != nil {
+			log.Printf("[ERR] getSpendableOutputs: non int wallet index: %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+			c.JSON(http.StatusOK, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrDecodeWalletIndexErr,
+				"outs":    outWallet,
+			})
+			return
+		}
+
+		var user store.User
+		var (
+			code    int
+			message string
+		)
+
+		sel := bson.M{"devices.JWT": token, "wallets.walletIndex": walletIndex}
+
+		if err = restClient.userStore.FindUser(sel, &user); err != nil {
+			log.Printf("[ERR] getSpendableOutputs: restClient.userStore.FindUser: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+			code = http.StatusBadRequest
+			message = msgErrUserNotFound
+		} else {
+			code = http.StatusOK
+			message = http.StatusText(http.StatusOK)
+		}
 
 	loop:
 		for _, wallet := range user.Wallets {
@@ -289,13 +400,12 @@ func (restClient *RestClient) getSpendableOutputs() gin.HandlerFunc {
 		}
 
 		if len(outWallet.Adresses) == 0 {
-			c.JSON(http.StatusOK, gin.H{
-				"code":    http.StatusBadRequest,
-				"message": "No spendable outputs",
-			})
+			message = msgErrNoSpendableOuts
 		} else {
 			c.JSON(http.StatusOK, gin.H{
-				"outs": outWallet,
+				"code":    code,
+				"message": message,
+				"outs":    outWallet,
 			})
 		}
 
