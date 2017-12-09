@@ -358,7 +358,7 @@ func getNewBlock(hash *chainhash.Hash) {
 	// ---------- outputs
 	for _, tx := range blockMSG.Transactions {
 		hash := tx.TxHash()
-		go parseBlockTransaction(&hash)
+		parseBlockTransaction(&hash)
 
 	}
 

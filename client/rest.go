@@ -13,7 +13,6 @@ import (
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -113,18 +112,18 @@ func initMiddlewareJWT(restClient *RestClient) {
 
 // ----------createWallet----------
 type WalletParams struct {
-	CurrencyID   int    `json:"currencyID" binding:"required"`
-	Address      string `json:"address" binding:"required"`
-	AddressIndex int    `json:"addressIndex" binding:"required"`
-	WalletIndex  int    `json:"walletIndex" binding:"required"`
-	WalletName   string `json:"walletName" binding:"required"`
+	CurrencyID   int    `json:"currencyID"`
+	Address      string `json:"address"`
+	AddressIndex int    `json:"addressIndex"`
+	WalletIndex  int    `json:"walletIndex"`
+	WalletName   string `json:"walletName"`
 }
 
 // ----------addAddress------------
 type SelectWallet struct {
-	WalletIndex  int    `json:"walletIndex" binding:"required"`
-	Address      string `json:"address" binding:"required"`
-	AddressIndex int    `json:"addressIndex" binding:"required"`
+	WalletIndex  int    `json:"walletIndex"`
+	Address      string `json:"address"`
+	AddressIndex int    `json:"addressIndex"`
 }
 
 // ----------getFeeRate----------
@@ -187,14 +186,6 @@ func (restClient *RestClient) addWallet() gin.HandlerFunc {
 			log.Printf("[ERR] addWallet: decodeBody: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
 		}
 
-		if c.ShouldBindWith(&wp, binding.JSON) != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    http.StatusBadRequest,
-				"message": msgErrRequestBodyError,
-			})
-			return
-		}
-
 		wallet := createWallet(wp.CurrencyID, wp.Address, wp.AddressIndex, wp.WalletIndex, wp.WalletName)
 
 		sel := bson.M{"devices.JWT": token}
@@ -235,14 +226,6 @@ func (restClient *RestClient) addAddress() gin.HandlerFunc {
 		err := decodeBody(c, &sw)
 		if err != nil {
 			log.Printf("[ERR] addAddress: decodeBody: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
-		}
-
-		if c.ShouldBindWith(&sw, binding.JSON) != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    http.StatusBadRequest,
-				"message": msgErrRequestBodyError,
-			})
-			return
 		}
 
 		addr := store.Address{
