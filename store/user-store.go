@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"log"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -18,6 +19,8 @@ const (
 	dbBTCMempool = "BTCMempool" // TODO: create rates store
 	tableRates   = "Rates"      // and send those two fields there
 )
+
+const defaultMongoDBaddr = "192.168.0.121:27017"
 
 type UserStore interface {
 	//GetSession()
@@ -62,6 +65,11 @@ func (mongo *MongoUserStore) GetAllRates(sortBy string, rates *[]RatesRecord) er
 }
 
 func InitUserStore(address string) (UserStore, error) {
+	if address == "" {
+		log.Printf("[INFO] mongo db address: will be used %s\n", defaultMongoDBaddr)
+		address = defaultMongoDBaddr
+	}
+
 	uStore := &MongoUserStore{
 		address: address,
 	}

@@ -75,22 +75,17 @@ UpQl3TYp8uTf+UWzBz0uoEbB4CFeE2G5ZzrVK4XWZK615sfVFSorxHOOZaLwZEEL
 }
 
 func RunProcess() error {
-	fmt.Println("from run process")
+	fmt.Println("[DEBUG] RunProcess()")
 
-	db, err := mgo.Dial("localhost")
+	db, err := mgo.Dial("192.168.0.121:27017")
 	fmt.Println(err)
 	usersData = db.DB("cyberkek").C("users")
 
 	mempoolRates = db.DB("BTCMempool").C("Rates")
-	//time.Sleep(time.Second)
 
 	ntfnHandlers := rpcclient.NotificationHandlers{
-
-		//OnRecvTx: func(transaction *btcutil.Tx, details *btcjson.BlockDetails) {
-		//	log.Printf("OnRecvTx:", transaction, details)
-		//},
 		OnTxAcceptedVerbose: func(txDetails *btcjson.TxRawResult) {
-			go parseRawTransaction(txDetails)
+			parseRawTransaction(txDetails)
 		},
 		OnRedeemingTx: func(transaction *btcutil.Tx, details *btcjson.BlockDetails) {
 			log.Println("OnRedeemingTx ", transaction, details)
@@ -98,11 +93,6 @@ func RunProcess() error {
 		OnUnknownNotification: func(method string, params []json.RawMessage) {
 			log.Println("OnUnknowNotification: ", method, params)
 		},
-		//OnFilteredBlockConnected: func(height int32, header *wire.BlockHeader, txns []*btcutil.Tx) {
-		//	log.Printf("Block connected: %v (%d) %v", header.BlockHash(), height, header.Timestamp)
-		//	//go getBlockVerbose(header.BlockHash())
-		//	//getBlock(*header.BlockHash())
-		//},
 		OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
 			log.Printf("Block disconnected: %v (%d) %v",
 				header.BlockHash(), height, header.Timestamp)
@@ -110,16 +100,14 @@ func RunProcess() error {
 
 		},
 		OnBlockConnected: func(hash *chainhash.Hash, height int32, t time.Time) {
-			log.Printf("OnBlockConnected: %v (%d) %v", hash, height, t)
-			//Here we have new block
-			log.Println("_________________________________________")
-			go getNewBlock(hash)
+			log.Printf("[DEBUG] OnBlockConnected: %v (%d) %v", hash, height, t)
+			getAndParseNewBlock(hash)
 		},
 	}
 
 	rpcClient, err = rpcclient.New(connCfg, &ntfnHandlers)
 	if err != nil {
-		log.Println("ERR pcclient.New: ", err.Error())
+		log.Printf("[ERR] RunProcess(): rpcclient.New %s\n", err.Error())
 		return err
 	}
 
@@ -142,7 +130,6 @@ func RunProcess() error {
 
 //Here we parsing transaction by getting inputs and outputs addresses
 func parseRawTransaction(inTx *btcjson.TxRawResult) error {
-
 	memPoolTx := MultyMempoolTx{size: inTx.Size, hash: inTx.Hash, txid: inTx.Txid}
 
 	inputs := inTx.Vin
@@ -251,7 +238,7 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 	//TODO update fee rates table
 	memPool = append(memPool, memPoolTx)
 
-	log.Printf("New Multy MemPool Size is: %d", len(memPool))
+	log.Printf("[DEBUG] parseRawTransaction: new multy mempool; size=%d", len(memPool))
 	return nil
 }
 func CreateBtcTransactionWithUserID(userId, txType, txId string, amount float64) BtcTransactionWithUserID {
@@ -299,21 +286,6 @@ var (
 	mempoolRates *mgo.Collection
 )
 
-/*
-func dialdb() error {
-	var err error
-	log.Println("dialing mongodb: localhost")
-	db, err = mgo.Dial("localhost")
-	return err
-}
-
-
-func closedb() {
-	db.Close()
-	log.Println("closed database connection")
-}
-*/
-
 func getAllMempool() {
 	rawMemPool, err := rpcClient.GetRawMempool()
 	if err != nil {
@@ -339,29 +311,29 @@ func getRawTx(hash *chainhash.Hash) {
 	go parseRawTransaction(rawTx)
 }
 
-func getNewBlock(hash *chainhash.Hash) {
+func getAndParseNewBlock(hash *chainhash.Hash) {
+	log.Printf("[DEBUG] getNewBlock()")
 	blockMSG, err := rpcClient.GetBlock(hash)
 	if err != nil {
-		log.Println("ERR GetBlock:", err.Error())
+		log.Println("[ERR] getAndParseNewBlock: ", err.Error())
 	}
 
-	// -------tx speed remover on block
-	BlockTxHases, err := blockMSG.TxHashes()
+	// tx speed remover on block
+	BlockTxHashes, err := blockMSG.TxHashes()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("[ERR] getAndParseNewBlock(): TxHashes: %s\n", err.Error())
 	}
-	for _, TxHash := range BlockTxHases {
+	for _, TxHash := range BlockTxHashes {
 		err := mempoolRates.Remove(bson.M{"hashtx": TxHash.String()})
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("[ERR] getNewBlock blockTxHases", err)
 		}
-		fmt.Println("remooved:", TxHash)
+		fmt.Println("[DEBUG] getNewBlock: removed:", TxHash)
 	}
-	// ---------- outputs
+	// outputs
 	for _, tx := range blockMSG.Transactions {
 		hash := tx.TxHash()
 		parseBlockTransaction(&hash)
-
 	}
 
 	// -------tracker
@@ -391,43 +363,51 @@ func getNewBlock(hash *chainhash.Hash) {
 	}
 }
 
-func parseBlockTransaction(txHash *chainhash.Hash) {
-
-	currentTx, err := rpcClient.GetRawTransactionVerbose(txHash)
-	if err != nil {
-		fmt.Println(err)
-	}
-
+func serealizeTransaction(currentTx *btcjson.TxRawResult) *MultyBlockTx {
 	blockTx := MultyBlockTx{Hash: currentTx.Hash, Txid: currentTx.Txid, Time: time.Now()}
-
+	log.Printf("[DEBUG] blocktx=%+v\n", blockTx)
 	outputs := currentTx.Vout
 
-	var txOutputs []MultyBlockAddress
-
+	var txOutputs = make([]MultyBlockAddress, 0)
 	for _, output := range outputs {
-
 		addressesOuts := output.ScriptPubKey.Addresses
-
 		txOutputs = append(txOutputs, MultyBlockAddress{addressesOuts, output.Value, output.N, output.ScriptPubKey.Hex})
 	}
 
-	blockTx.Outputs = txOutputs
+	return &blockTx
+}
 
-	// log.Printf("\n **************************** Multy-New Tx Found *******************\n hash: %s, id: %s \n amount: %f , fee: %f , feeRate: %d \n Inputs: %v \n OutPuts: %v \n ****************************Multy-the best wallet*******************", memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs)
+func findAndPushUserTransactions(blockTx *MultyBlockTx) {
+	log.Print("[DEBUG] findAndPushUserTransactions")
 	user := store.UserExtended{}
-
 	for _, output := range blockTx.Outputs {
 		for _, address := range output.Address {
+			log.Printf("[DEBUG] indAndPushUserTransactions: output.Addres=%s\n", address)
 			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
 			sel := bson.M{"userID": user.UserID}
 			update := bson.M{"$push": bson.M{"wallets.$.adresses.$.address.outputs": blockTx}}
+			log.Printf("[DEBUG] indAndPushUserTransactions: sel=%+v/update=%+v\n", sel, update)
 			err := usersData.Update(sel, update)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Printf("[ERR] push transaction to db: %s\n", err.Error())
 			}
 		}
 	}
+}
 
+func parseBlockTransaction(txHash *chainhash.Hash) {
+	log.Printf("[DEBUG] parseBlockTransaction()")
+	currentRaw, err := rpcClient.GetRawTransactionVerbose(txHash)
+	if err != nil {
+		fmt.Printf("[ERR] parseBlockTransaction: GetRawTransactionVerbose(): %s\n", err.Error())
+		return
+	}
+
+	blockTx := serealizeTransaction(currentRaw)
+	log.Printf("[DEBUG] parseBlockTransaction %+v\n", blockTx.Outputs)
+
+	// log.Printf("\nMulty-New Tx Found hash: %s, id: %s \n amount: %f , fee: %f , feeRate: %d \n Inputs: %v \n OutPuts: %v \Multy-the best wallet*******************", memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs)
+	go findAndPushUserTransactions(blockTx)
 }
 
 type MultyBlockTx struct {
