@@ -62,7 +62,7 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 		var loginVals Login
 
 		if c.ShouldBindWith(&loginVals, binding.JSON) != nil {
-			restClient.middlewareJWT.unauthorized(c, http.StatusBadRequest, "Missing Username, Password or DeviceID")
+			restClient.middlewareJWT.unauthorized(c, http.StatusBadRequest, "Missing UserID, DeviceID, PushToken or DeviceType")
 			return
 		}
 
@@ -71,7 +71,7 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 			return
 		}
 
-		user, ok := restClient.middlewareJWT.Authenticator(loginVals.Username, loginVals.DeviceID, loginVals.Password, c) // user can be empty
+		user, ok := restClient.middlewareJWT.Authenticator(loginVals.UserID, loginVals.DeviceID, loginVals.PushToken, loginVals.DeviceType, c) // user can be empty
 
 		userID := user.UserID
 
@@ -83,13 +83,13 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 		token := jwt.New(jwt.GetSigningMethod(restClient.middlewareJWT.SigningAlgorithm))
 		claims := token.Claims.(jwt.MapClaims)
 		if restClient.middlewareJWT.PayloadFunc != nil {
-			for key, value := range restClient.middlewareJWT.PayloadFunc(loginVals.Username) {
+			for key, value := range restClient.middlewareJWT.PayloadFunc(loginVals.UserID) {
 				claims[key] = value
 			}
 		}
 
 		if userID == "" {
-			userID = loginVals.Username
+			userID = loginVals.UserID
 		}
 
 		expire := restClient.middlewareJWT.TimeFunc().Add(restClient.middlewareJWT.Timeout)
@@ -105,6 +105,7 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 
 		// If user auths with DeviceID and UserID that
 		// already exists in DB we refresh JWT token.
+	loop:
 		for _, concreteDevice := range user.Devices {
 
 			// case of expired token on device or relogin from same device with
@@ -114,31 +115,29 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 				update := bson.M{"$set": bson.M{"devices.$.JWT": tokenString}}
 				err = restClient.userStore.Update(sel, update)
 				responseErr(c, err, http.StatusInternalServerError) // 500
+				break loop
 			} else {
 				// case of adding new device to user account
 				// e.g. user want to use app on another device
-
-				// BUG: cant crate new device -- fixed
-				device := createDevice(loginVals.DeviceID, c.ClientIP(), tokenString)
+				device := createDevice(loginVals.DeviceID, c.ClientIP(), tokenString, loginVals.PushToken, loginVals.DeviceType)
 				user.Devices = append(user.Devices, device)
 
-				// IDEA: speed improvmet: refresh several fields but not full object.
 				sel := bson.M{"userID": userID}
 				err = restClient.userStore.UpdateUser(sel, &user)
 
 				responseErr(c, err, http.StatusInternalServerError) // 500
-
+				break loop
 			}
 		}
 
 		if !ok {
-			device := createDevice(loginVals.DeviceID, c.ClientIP(), tokenString)
+			device := createDevice(loginVals.DeviceID, c.ClientIP(), tokenString, loginVals.PushToken, loginVals.DeviceType)
 
 			var wallet []store.Wallet
 			var devices []store.Device
 			devices = append(devices, device)
 
-			newUser := createUser(loginVals.Username, devices, wallet)
+			newUser := createUser(loginVals.UserID, devices, wallet)
 
 			user = newUser
 
