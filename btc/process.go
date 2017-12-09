@@ -54,24 +54,11 @@ type rpcClientWrapper struct {
 var usersData *mgo.Collection
 
 var connCfg = &rpcclient.ConnConfig{
-	Host:     "192.168.0.121:18334",
-	User:     "multy",
-	Pass:     "multy",
-	Endpoint: "ws",
-	Certificates: []byte(`-----BEGIN CERTIFICATE-----
-MIICPDCCAZ2gAwIBAgIQf8XOycg2EQ8wHpXsZJSy7jAKBggqhkjOPQQDBDAjMREw
-DwYDVQQKEwhnZW5jZXJ0czEOMAwGA1UEAxMFYW50b24wHhcNMTcxMTI2MTY1ODQ0
-WhcNMjcxMTI1MTY1ODQ0WjAjMREwDwYDVQQKEwhnZW5jZXJ0czEOMAwGA1UEAxMF
-YW50b24wgZswEAYHKoZIzj0CAQYFK4EEACMDgYYABAGuHzCFKsJwlFwmtx5QMT/r
-YJ/ap9E2QlUsCnMUCn1ho0wLJkpIgNQWs1zcaKTMGZNpwwLemCHke9sX06h/MdAG
-CwGf1CY5kafyl7dTTlmD10sBA7UD1RXDjYnmYQhB1Z1MUNXKWXe4jCv7DnWmFEnc
-+s5N1NXJx1PNzx/EcsCkRJcMraNwMG4wDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB
-/wQFMAMBAf8wSwYDVR0RBEQwQoIFYW50b26CCWxvY2FsaG9zdIcEfwAAAYcQAAAA
-AAAAAAAAAAAAAAAAAYcEwKgAeYcQ/oAAAAAAAAByhcL//jB99jAKBggqhkjOPQQD
-BAOBjAAwgYgCQgCfs9tYHA1nvU5HSdNeHSZCR1WziHYuZHmGE7eqAWQjypnVbFi4
-pccvzDFvESf8DG4FVymK4E2T/RFnD9qUDiMzPQJCATkCMzSKcyYlsL7t1ZgQLwAK
-UpQl3TYp8uTf+UWzBz0uoEbB4CFeE2G5ZzrVK4XWZK615sfVFSorxHOOZaLwZEEL
------END CERTIFICATE-----`),
+	Host:         "192.168.0.121:18334",
+	User:         "multy",
+	Pass:         "multy",
+	Endpoint:     "ws",
+	Certificates: []byte(`testsert`),
 }
 
 func RunProcess() error {
@@ -112,6 +99,7 @@ func RunProcess() error {
 		OnBlockConnected: func(hash *chainhash.Hash, height int32, t time.Time) {
 			log.Printf("OnBlockConnected: %v (%d) %v", hash, height, t)
 			//Here we have new block
+			log.Println("_________________________________________")
 			go getNewBlock(hash)
 		},
 	}
@@ -197,7 +185,7 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 	// log.Printf("\n **************************** Multy-New Tx Found *******************\n hash: %s, id: %s \n amount: %f , fee: %f , feeRate: %d \n Inputs: %v \n OutPuts: %v \n ****************************Multy-the best wallet*******************", memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs)
 	// memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs
 
-	var user store.User
+	var user store.UserExtended
 
 	for _, input := range memPoolTx.inputs {
 		for _, address := range input.address {
@@ -214,7 +202,7 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 				}
 				// TODO: parse block
 			}
-			user = store.User{}
+			user = store.UserExtended{}
 		}
 	}
 
@@ -234,7 +222,7 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 				}
 				// TODO: parse block
 			}
-			user = store.User{}
+			user = store.UserExtended{}
 		}
 	}
 
@@ -282,6 +270,7 @@ func newTxInfo(txType, txHash, address string, amount float64) TxInfo {
 		TxHash:  txHash,
 		Address: address,
 		Amount:  amount,
+		// timestamp
 	}
 }
 
@@ -342,15 +331,22 @@ func getNewBlock(hash *chainhash.Hash) {
 	}
 
 	// -------tx speed remover on block
-	hs, err := blockMSG.TxHashes()
+	BlockTxHases, err := blockMSG.TxHashes()
 	if err != nil {
 		fmt.Println(err)
 	}
-	for _, v := range hs {
-		err := mempoolRates.Remove(bson.M{"hashtx": v.String()})
+	for _, TxHash := range BlockTxHases {
+		err := mempoolRates.Remove(bson.M{"hashtx": TxHash.String()})
 		if err != nil {
 			fmt.Println(err)
 		}
+		fmt.Println("remooved:", TxHash)
+	}
+	// ---------- outputs
+	for _, tx := range blockMSG.Transactions {
+		hash := tx.TxHash()
+		go parseBlockTransaction(&hash)
+
 	}
 
 	// -------tracker
@@ -378,4 +374,56 @@ func getNewBlock(hash *chainhash.Hash) {
 			}
 		}
 	}
+}
+
+func parseBlockTransaction(txHash *chainhash.Hash) {
+
+	currentTx, err := rpcClient.GetRawTransactionVerbose(txHash)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	blockTx := MultyBlockTx{Hash: currentTx.Hash, Txid: currentTx.Txid, Time: time.Now()}
+
+	outputs := currentTx.Vout
+
+	var txOutputs []MultyBlockAddress
+
+	for _, output := range outputs {
+
+		addressesOuts := output.ScriptPubKey.Addresses
+
+		txOutputs = append(txOutputs, MultyBlockAddress{addressesOuts, output.Value, output.N, output.ScriptPubKey.Hex})
+	}
+
+	blockTx.Outputs = txOutputs
+
+	// log.Printf("\n **************************** Multy-New Tx Found *******************\n hash: %s, id: %s \n amount: %f , fee: %f , feeRate: %d \n Inputs: %v \n OutPuts: %v \n ****************************Multy-the best wallet*******************", memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs)
+	user := store.UserExtended{}
+
+	for _, output := range blockTx.Outputs {
+		for _, address := range output.Address {
+			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
+			sel := bson.M{"userID": user.UserID}
+			update := bson.M{"$push": bson.M{"wallets.$.adresses.$.address.outputs": blockTx}}
+			err := usersData.Update(sel, update)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}
+
+}
+
+type MultyBlockTx struct {
+	Hash    string              `json:"hash"`
+	Txid    string              `json:"txid"`
+	Time    time.Time           `json:"time"`
+	Outputs []MultyBlockAddress `json:"outputs"`
+}
+type MultyBlockAddress struct {
+	Address     []string `json:"address"`
+	Amount      float64  `json:"amount"`
+	TxIndex     uint32   `json:"txIndex"`
+	TxOutScript string   `json:"txOutScript"`
 }

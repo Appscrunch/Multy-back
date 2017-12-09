@@ -13,8 +13,10 @@ var (
 )
 
 const (
-	tableUsers = "userCollection"
-	dbUsers    = "userDB"
+	tableUsers   = "userCollection"
+	dbUsers      = "userDB"
+	dbBTCMempool = "BTCMempool" // TODO: create rates store
+	tableRates   = "Rates"      // and send those two fields there
 )
 
 type UserStore interface {
@@ -25,21 +27,23 @@ type UserStore interface {
 	Close() error
 	FindUser(query bson.M, user *User) error
 	UpdateUser(sel bson.M, user *User) error
+	GetAllRates(sortBy string, rates *[]RatesRecord) error //add to rates store
 }
 
 type MongoUserStore struct {
-	address   string
-	session   *mgo.Session
-	usersData *mgo.Collection
+	address    string
+	session    *mgo.Session
+	usersData  *mgo.Collection
+	ratessData *mgo.Collection
 }
 
 func (mongo *MongoUserStore) UpdateUser(sel bson.M, user *User) error {
 	return mongo.usersData.Update(sel, user)
 }
 
-func (mongo *MongoUserStore) GetUserByDevice(device bson.M, user *User) {
+func (mongo *MongoUserStore) GetUserByDevice(device bson.M, user *User) { // rename GetUserByToken
 	mongo.usersData.Find(device).One(user)
-	return
+	return // why?
 }
 
 func (mongo *MongoUserStore) Update(sel, update bson.M) error {
@@ -53,6 +57,9 @@ func (mongo *MongoUserStore) FindUser(query bson.M, user *User) error {
 func (mongo *MongoUserStore) Insert(user User) error {
 	return mongo.usersData.Insert(user)
 }
+func (mongo *MongoUserStore) GetAllRates(sortBy string, rates *[]RatesRecord) error {
+	return mongo.ratessData.Find(nil).Sort(sortBy).All(rates)
+}
 
 func InitUserStore(address string) (UserStore, error) {
 	uStore := &MongoUserStore{
@@ -64,6 +71,7 @@ func InitUserStore(address string) (UserStore, error) {
 	}
 	uStore.session = session
 	uStore.usersData = uStore.session.DB(dbUsers).C(tableUsers)
+	uStore.ratessData = uStore.session.DB(dbBTCMempool).C(tableRates)
 	return uStore, nil
 }
 

@@ -38,7 +38,6 @@ func makeRequest(c *gin.Context, url string, to interface{}) {
 	err = json.Unmarshal(data, to)
 	responseErr(c, err, http.StatusInternalServerError) // 500
 }
-
 func createUser(userid string, device []store.Device, wallets []store.Wallet) store.User {
 	return store.User{
 		UserID:  userid,
@@ -46,24 +45,28 @@ func createUser(userid string, device []store.Device, wallets []store.Wallet) st
 		Wallets: wallets,
 	}
 }
-
-func createDevice(deviceid, ip, jwt string) store.Device {
+func createDevice(deviceid, ip, jwt, pushToken string, deviceType int) store.Device {
 	return store.Device{
 		DeviceID:       deviceid,
+		PushToken:      pushToken,
 		JWT:            jwt,
 		LastActionIP:   ip,
 		LastActionTime: time.Now(),
+		DeviceType:     deviceType,
 	}
 }
 
-func createWallet(chain, address, addressID, walletID string) store.Wallet {
+func createWallet(currencyID int, address string, addressIndex int, walletIndex int, walletName string) store.Wallet {
 	return store.Wallet{
-		Chain:    chain,
-		WalletID: walletID,
+		CurrencyID:     currencyID,
+		WalletIndex:    walletIndex,
+		WalletName:     walletName,
+		LastActionTime: time.Now(),
+		DateOfCreation: time.Now(),
 		Adresses: []store.Address{
 			store.Address{
-				Address:   address,
-				AddressID: addressID,
+				Address:      address,
+				AddressIndex: addressIndex,
 			},
 		},
 	}
