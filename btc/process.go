@@ -320,7 +320,9 @@ func getAllMempool() {
 	log.Printf("rawMemPoolSize: %d", len(rawMemPool))
 
 	for _, txHash := range rawMemPool {
-		go getRawTx(txHash)
+		go func(txHash string) {
+			getRawTx(txHash)
+		}(txHash)
 	}
 }
 
