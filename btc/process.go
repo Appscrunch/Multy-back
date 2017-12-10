@@ -75,7 +75,7 @@ func RunProcess() error {
 
 	ntfnHandlers := rpcclient.NotificationHandlers{
 		OnTxAcceptedVerbose: func(txDetails *btcjson.TxRawResult) {
-			parseRawTransaction(txDetails)
+			go parseRawTransaction(txDetails)
 		},
 		OnRedeemingTx: func(transaction *btcutil.Tx, details *btcjson.BlockDetails) {
 			log.Println("OnRedeemingTx ", transaction, details)
