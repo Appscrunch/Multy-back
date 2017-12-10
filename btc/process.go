@@ -182,11 +182,14 @@ func getAndParseNewBlock(hash *chainhash.Hash) {
 			log.Println("[ERR] parseBlockTransaction:  ", err.Error())
 		}
 
+		log.Printf("[DEBUG] getAndParseNewBlock: Find hashStr=%s\n", txHashStr)
+
 		// !notify users that their transactions was applied in a block
 		if err := usersData.Find(bson.M{"transactions.txhash": txHashStr}).One(&user); err != nil {
 			log.Printf("[ERR] getAndParseNewBlock: usersData.Find: %s\n", err.Error())
 			continue
 		}
+		log.Printf("[DEBUG] user=%+v", user)
 
 		if user.Wallets == nil {
 			log.Println("[WARN] getAndParseNewBlock:  wallet is empty")
