@@ -43,6 +43,7 @@ type BtcTransaction struct {
 	TransactionType string  `json:"transactionType"`
 	Amount          float64 `json:"amount"`
 	TxID            string  `json:"txid"`
+	Address         string  `json:"address"`
 }
 
 type BtcTransactionWithUserID struct {
