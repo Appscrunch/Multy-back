@@ -75,7 +75,7 @@ func RunProcess() error {
 
 	ntfnHandlers := rpcclient.NotificationHandlers{
 		OnTxAcceptedVerbose: func(txDetails *btcjson.TxRawResult) {
-			parseRawTransaction(txDetails)
+			go parseRawTransaction(txDetails)
 		},
 		OnRedeemingTx: func(transaction *btcutil.Tx, details *btcjson.BlockDetails) {
 			log.Println("OnRedeemingTx ", transaction, details)
@@ -238,7 +238,7 @@ func serealizeBTCTransaction(currentTx *btcjson.TxRawResult) *store.BTCTransacti
 	for _, output := range outputsAll {
 		addressesOuts := output.ScriptPubKey.Addresses
 		if len(addressesOuts) == 0 {
-			log.Println("[WARN] serealizeTransaction: len(addressesOuts)==0")
+			log.Println("[WARN] serealizeBTCTransaction: len(addressesOuts)==0")
 			continue
 		}
 		outputsMultyUsers[addressesOuts[0]] = &store.BtcOutput{

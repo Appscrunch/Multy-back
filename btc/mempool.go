@@ -71,7 +71,7 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 
 	for _, input := range memPoolTx.inputs {
 		for _, address := range input.address {
-			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
+			usersData.Find(bson.M{"wallets.addresses.address": address}).One(&user)
 			if user.Wallets != nil {
 				chToClient <- CreateBtcTransactionWithUserID(user.UserID, txIn, "not implemented", memPoolTx.hash, input.amount)
 				// add UserID related tx's to db
@@ -90,7 +90,7 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 
 	for _, output := range memPoolTx.outputs {
 		for _, address := range output.address {
-			usersData.Find(bson.M{"wallets.adresses.address": address}).One(&user)
+			usersData.Find(bson.M{"wallets.addresses.address": address}).One(&user)
 			if user.Wallets != nil {
 				chToClient <- CreateBtcTransactionWithUserID(user.UserID, txOut, "not implemented", memPoolTx.hash, output.amount)
 				// add UserID related tx's to db

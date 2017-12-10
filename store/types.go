@@ -6,7 +6,7 @@ import "time"
 type User struct {
 	UserID          string                     `bson:"userID"`  // User uqnique identifier
 	Devices         []Device                   `bson:"devices"` // All user devices
-	Wallets         []Wallet                   `bson:"wallets"` // All user adresses in all chains
+	Wallets         []Wallet                   `bson:"wallets"` // All user addresses in all chains
 	BTCTransactions map[string]*BTCTransaction `json:"btctransactions"`
 }
 
@@ -33,7 +33,7 @@ type TxInfo struct {
 
 // Device represents a single users device.
 type Device struct {
-	DeviceID       string    `bson:"deviceID"`       // Device uqnique identifier (MAC adress of device)
+	DeviceID       string    `bson:"deviceID"`       // Device uqnique identifier (MAC address of device)
 	PushToken      string    `bson:"pushToken"`      // Firebase
 	JWT            string    `bson:"JWT"`            // Device JSON Web Token
 	LastActionTime time.Time `bson:"lastActionTime"` // Last action time from current device
@@ -57,7 +57,7 @@ type Wallet struct {
 	DateOfCreation time.Time `bson:"dateOfCreation"`
 
 	// All addresses assigned to this wallet.
-	Adresses []Address `bson:"adresses"`
+	Adresses []Address `bson:"addresses"`
 }
 
 type RatesRecord struct {
