@@ -48,7 +48,7 @@ package client
 // 	return f
 // }
 //
-// func getadressbalance(c *gin.Context, addr string, chain int) int {
+// func getaddressbalance(c *gin.Context, addr string, chain int) int {
 // 	urls := []string{
 // 		"https://blockchain.info/q/addressbalance/" + addr,                   //bitcoin
 // 		"https://api.blockcypher.com/v1/eth/main/addrs/" + addr + "/balance", //etherium

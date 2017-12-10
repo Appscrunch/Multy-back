@@ -75,7 +75,7 @@ func SetRestHandlers(userDB store.UserStore, r *gin.Engine, clientRPC *rpcclient
 
 		//
 		// v1.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice())
-		// // r.GET("/getactivities/:adress/:datefrom/:dateto", restClient.getActivities())
+		// // r.GET("/getactivities/:address/:datefrom/:dateto", restClient.getActivities())
 		// v1.GET("/getaddressbalance/:addr", restClient.getAdressBalance())
 	}
 	return restClient, nil
@@ -144,14 +144,14 @@ type Tx struct {
 // ----------getAdresses----------
 type DisplayWallet struct {
 	Chain    string          `json:"chain"`
-	Adresses []store.Address `json:"adresses"`
+	Adresses []store.Address `json:"addresses"`
 }
 
 // ----------getAllUserAssets----------
 type WalletExtended struct {
 	CuurencyID  int         `bson:"chain"`       //cuurencyID
 	WalletIndex int         `bson:"walletIndex"` //walletIndex
-	Addresses   []AddressEx `bson:"adresses"`
+	Addresses   []AddressEx `bson:"addresses"`
 }
 
 type AddressEx struct { // extended
@@ -239,7 +239,7 @@ func (restClient *RestClient) addAddress() gin.HandlerFunc {
 		)
 
 		sel := bson.M{"wallets.walletIndex": sw.WalletIndex, "devices.JWT": token}
-		update := bson.M{"$push": bson.M{"wallets.$.adresses": addr}}
+		update := bson.M{"$push": bson.M{"wallets.$.addresses": addr}}
 
 		if err = restClient.userStore.Update(sel, update); err != nil {
 			log.Printf("[ERR] addAddress: restClient.userStore.Update: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
@@ -516,11 +516,11 @@ func (restClient *RestClient) getExchangePrice() gin.HandlerFunc {
 // 		switch as.Chain {
 // 		case currencies.String(currencies.Bitcoin):
 // 			for _, addr := range as.Adresses {
-// 				assets[name] += getadressbalance(c, addr.Address, 1)
+// 				assets[name] += getaddressbalance(c, addr.Address, 1)
 // 			}
 // 		case currencies.String(currencies.Ether):
 // 			for _, addr := range as.Adresses {
-// 				assets[name] += getadressbalance(c, addr.Address, 2)
+// 				assets[name] += getaddressbalance(c, addr.Address, 2)
 // 			}
 // 		default:
 // 			fmt.Println(strings.ToUpper(as.Chain))
