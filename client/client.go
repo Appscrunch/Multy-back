@@ -32,7 +32,7 @@ func (sConnPool *SocketIOConnectedPool) listenBTC() {
 	for {
 		select {
 		case newTransactionWithUserID = <-sConnPool.btcCh:
-			//	log.Printf("got new transaction: %+v\n", newTransactionWithUserID)
+			log.Printf("got new transaction: %+v\n", newTransactionWithUserID)
 			/*	if _, ok := sConnPool.users[newTransactionWithUserID.UserID]; !ok {
 					break
 				}
