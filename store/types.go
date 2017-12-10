@@ -4,16 +4,24 @@ import "time"
 
 // User represents a single app user
 type User struct {
-	UserID  string   `bson:"userID"`  // User uqnique identifier
-	Devices []Device `bson:"devices"` // All user devices
-	Wallets []Wallet `bson:"wallets"` // All user adresses in all chains
+	UserID          string                     `bson:"userID"`  // User uqnique identifier
+	Devices         []Device                   `bson:"devices"` // All user devices
+	Wallets         []Wallet                   `bson:"wallets"` // All user adresses in all chains
+	BTCTransactions map[string]*BTCTransaction `json:"btctransactions"`
 }
 
-type UserExtended struct {
-	UserID       string   `bson:"userID"`  // User uqnique identifier
-	Devices      []Device `bson:"devices"` // All user devices
-	Wallets      []Wallet `bson:"wallets"` // All user adresses in all chains
-	Transactions []TxInfo `bson:"transactions"`
+type BTCTransaction struct {
+	Hash    string                `json:"hash"`
+	Txid    string                `json:"txid"`
+	Time    time.Time             `json:"time"`
+	Outputs map[string]*BtcOutput `json:"outputs"` // addresses to outputs, key = address
+}
+
+type BtcOutput struct {
+	Address     string  `json:"address"`
+	Amount      float64 `json:"amount"`
+	TxIndex     uint32  `json:"txIndex"`
+	TxOutScript string  `json:"txOutScript"`
 }
 
 type TxInfo struct {
@@ -58,20 +66,6 @@ type RatesRecord struct {
 }
 
 type Address struct {
-	AddressIndex     int            `json:"addressIndex" bson:"addressIndex"`
-	Address          string         `json:"address" bson:"address"`
-	SpendableOutputs []MultyBlockTx `json:"spendableOutputs" bson:"spendableOutputs"`
-}
-
-type MultyBlockTx struct {
-	Hash    string              `json:"hash"`
-	Txid    string              `json:"txid"`
-	Time    time.Time           `json:"time"`
-	Outputs []MultyBlockAddress `json:"outputs"`
-}
-type MultyBlockAddress struct {
-	Address     []string `json:"address"`
-	Amount      float64  `json:"amount"`
-	TxIndex     uint32   `json:"txIndex"`
-	TxOutScript string   `json:"txOutScript"`
+	AddressIndex int    `json:"addressIndex" bson:"addressIndex"`
+	Address      string `json:"address" bson:"address"`
 }
