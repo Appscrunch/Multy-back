@@ -1,23 +1,13 @@
 package btc
 
-import (
-	"fmt"
-	"log"
-
-	"github.com/Appscrunch/Multy-back/store"
-	"github.com/btcsuite/btcd/btcjson"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"gopkg.in/mgo.v2/bson"
-)
-
+/*
 //Here we parsing transaction by getting inputs and outputs addresses
-func parseRawTransaction(inTx *btcjson.TxRawResult) error {
+func parseRawMempool(inTx *btcjson.TxRawResult) error {
 	memPoolTx := MultyMempoolTx{size: inTx.Size, hash: inTx.Hash, txid: inTx.Txid}
 
 	inputs := inTx.Vin
 
-	var inputSum float64 = 0
-	var outputSum float64 = 0
+	var inputSum, outputSum float64 = 0, 0
 
 	for j := 0; j < len(inputs); j++ {
 		input := inputs[j]
@@ -75,14 +65,14 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 			if user.Wallets != nil {
 				chToClient <- CreateBtcTransactionWithUserID(user.UserID, txIn, "not implemented", memPoolTx.hash, input.amount)
 				// add UserID related tx's to db
-				rec := newTxInfo(txIn, memPoolTx.hash, address, input.amount)
-				sel := bson.M{"userID": user.UserID}
-				update := bson.M{"$push": bson.M{"transactions": rec}}
-				err := usersData.Update(sel, update)
-				if err != nil {
-					fmt.Println(err)
-				}
-				// TODO: parse block
+				// rec := newTxInfo(txIn, memPoolTx.hash, address, input.amount)
+				// sel := bson.M{"userID": user.UserID}
+				// update := bson.M{"$push": bson.M{"transactions": rec}}
+				// err := usersData.Update(sel, update)
+				// if err != nil {
+				// 	fmt.Println(err)
+				// }
+				// // TODO: parse block
 			}
 			user = store.User{}
 		}
@@ -95,14 +85,14 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 				chToClient <- CreateBtcTransactionWithUserID(user.UserID, txOut, "not implemented", memPoolTx.hash, output.amount)
 				// add UserID related tx's to db
 
-				rec := newTxInfo(txOut, memPoolTx.hash, address, output.amount)
-				sel := bson.M{"userID": user.UserID}
-				update := bson.M{"$push": bson.M{"transactions": rec}}
-				err := usersData.Update(sel, update)
-				if err != nil {
-					fmt.Println(err)
-				}
-				// TODO: parse block
+				// rec := newTxInfo(txOut, memPoolTx.hash, address, output.amount)
+				// sel := bson.M{"userID": user.UserID}
+				// update := bson.M{"$push": bson.M{"transactions": rec}}
+				// err := usersData.Update(sel, update)
+				// if err != nil {
+				// 	fmt.Println(err)
+				// }
+				// // TODO: parse block
 			}
 			user = store.User{}
 		}
@@ -123,3 +113,4 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 	log.Printf("[DEBUG] parseRawTransaction: new multy mempool; size=%d", len(memPool))
 	return nil
 }
+*/

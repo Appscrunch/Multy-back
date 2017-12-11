@@ -3,17 +3,11 @@ package btc
 import (
 	"fmt"
 
-	"github.com/Appscrunch/Multy-back/store"
 	"github.com/btcsuite/btcd/rpcclient"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
 	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
-	"encoding/json"
 	"time"
 
-	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 
 	"log"
@@ -72,24 +66,7 @@ func RunProcess() error {
 
 	usersData = db.DB("userDB").C("userCollection")
 
-	mempoolRates = db.DB("BTCMempool").C("Rates")
-
 	ntfnHandlers := rpcclient.NotificationHandlers{
-		OnTxAcceptedVerbose: func(txDetails *btcjson.TxRawResult) {
-			go parseRawTransaction(txDetails)
-		},
-		OnRedeemingTx: func(transaction *btcutil.Tx, details *btcjson.BlockDetails) {
-			log.Println("OnRedeemingTx ", transaction, details)
-		},
-		OnUnknownNotification: func(method string, params []json.RawMessage) {
-			log.Println("OnUnknowNotification: ", method, params)
-		},
-		OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
-			log.Printf("Block disconnected: %v (%d) %v",
-				header.BlockHash(), height, header.Timestamp)
-			//TODO update mem pool actual transactions
-
-		},
 		OnBlockConnected: func(hash *chainhash.Hash, height int32, t time.Time) {
 			log.Printf("[DEBUG] OnBlockConnected: %v (%d) %v", hash, height, t)
 			go getAndParseNewBlock(hash)
@@ -108,182 +85,6 @@ func RunProcess() error {
 	}
 	log.Println("NotifyBlocks: Registration Complete")
 
-	if err = rpcClient.NotifyNewTransactions(true); err != nil {
-		return err
-	}
-
-	//When first launch here we are getting all mem pool transactions
-	go getAllMempool()
-
 	rpcClient.WaitForShutdown()
 	return nil
-}
-
-var (
-	//db           *mgo.Session
-	mempoolRates *mgo.Collection
-)
-
-func getAllMempool() {
-	rawMemPool, err := rpcClient.GetRawMempool()
-	if err != nil {
-		log.Println("ERR rpcClient.GetRawMempool [rawMemPool]: ", err.Error())
-	}
-	log.Printf("rawMemPoolSize: %d", len(rawMemPool))
-
-	for _, txHash := range rawMemPool {
-		go func(txHash *chainhash.Hash) {
-			getRawTx(txHash)
-		}(txHash)
-	}
-}
-
-//Here we are getting transaction by hash
-func getRawTx(hash *chainhash.Hash) {
-	rawTx, err := rpcClient.GetRawTransactionVerbose(hash)
-	if err != nil {
-		log.Println("ERR GetRawTransactionVerbose: ", err.Error())
-		//TODO
-		return
-	}
-	go parseRawTransaction(rawTx)
-}
-
-func getAndParseNewBlock(hash *chainhash.Hash) {
-	log.Printf("[DEBUG] getNewBlock()")
-	blockMSG, err := rpcClient.GetBlock(hash)
-	if err != nil {
-		log.Println("[ERR] getAndParseNewBlock: ", err.Error())
-	}
-
-	// tx speed remover on block
-	BlockTxHashes, err := blockMSG.TxHashes() // txHashes of all block tx's
-	if err != nil {
-		fmt.Printf("[ERR] getAndParseNewBlock(): TxHashes: %s\n", err.Error())
-	}
-
-	log.Println("[DEBUG] hash iteration logic transactions")
-
-	var (
-		user      store.User
-		txHashStr string
-	)
-	for _, txHash := range BlockTxHashes {
-		txHashStr = txHash.String()
-
-		// !tx speed remover on block
-		err := mempoolRates.Remove(bson.M{"hashtx": txHashStr})
-		if err != nil {
-			fmt.Println("[ERR] getNewBlock blockTxHases", err)
-		}
-		fmt.Println("[DEBUG] getNewBlock: removed:", txHash)
-
-		blockTx, err := parseBlockTransaction(&txHash)
-		if err != nil {
-			log.Println("[ERR] parseBlockTransaction:  ", err.Error())
-		}
-
-		log.Printf("[DEBUG] getAndParseNewBlock: Find hashStr=%s/user.UserID=%s\n", txHashStr, user.UserID)
-
-		for addr := range blockTx.Outputs {
-			log.Printf("[DEBUG] addr=[%s]\n", addr)
-			if err := usersData.Find(bson.M{"wallets.addresses.address": addr}).One(&user); err != nil {
-				log.Printf("[ERR] getAndParseNewBlock: usersData.Find: %s\n", err.Error())
-				continue
-			}
-			log.Printf("[DEBUG] user=%+v", user)
-			// check this out
-
-			// !notify users that their transactions was applied in a block
-
-			if user.Wallets == nil {
-				log.Println("[WARN] getAndParseNewBlock:  wallet is empty")
-				continue
-			}
-
-			var output *store.BtcOutput
-			var ok bool
-			for _, wallet := range user.Wallets {
-				for _, addr := range wallet.Adresses {
-					if output, ok = blockTx.Outputs[addr.Address]; !ok {
-						continue
-					}
-					// got output with our address; notify user about it
-					log.Println("[DEBUG] getAndParseNewBlock: address=", addr)
-					go addUserTransactionsToDB(user.UserID, output)
-					chToClient <- CreateBtcTransactionWithUserID(addr.Address, user.UserID, txOut+" block", txHashStr, output.Amount)
-				}
-			}
-		}
-		log.Println("[DEBUG] hash iteration logic transactions done")
-
-		for _, tx := range blockMSG.Transactions {
-			for index, memTx := range memPool {
-				if memTx.hash == tx.TxHash().String() {
-					//TODO remove transaction from mempool
-					//TODO update fee rates table
-					//TODO check if tx is of our client
-					//TODO is so -> notify client
-					memPool = append(memPool[:index], memPool[index+1:]...)
-				}
-			}
-		}
-	}
-	log.Println("[DEBUG] getNewBlock() done")
-}
-
-func serealizeBTCTransaction(currentTx *btcjson.TxRawResult) *store.BTCTransaction {
-	blockTx := store.BTCTransaction{
-		Hash: currentTx.Hash,
-		Txid: currentTx.Txid,
-		Time: time.Now(),
-	}
-
-	outputsAll := currentTx.Vout
-
-	outputsMultyUsers := make(map[string]*store.BtcOutput, 0)
-	for _, output := range outputsAll {
-		addressesOuts := output.ScriptPubKey.Addresses
-		if len(addressesOuts) == 0 {
-			log.Println("[WARN] serealizeBTCTransaction: len(addressesOuts)==0")
-			continue
-		}
-		outputsMultyUsers[addressesOuts[0]] = &store.BtcOutput{
-			Address:     addressesOuts[0],
-			Amount:      output.Value,
-			TxIndex:     output.N,
-			TxOutScript: output.ScriptPubKey.Hex,
-		}
-	}
-	blockTx.Outputs = outputsMultyUsers
-	log.Printf("[DEBUG] blocktx=%+v\n", blockTx)
-	return &blockTx
-}
-
-func addUserTransactionsToDB(userID string, output *store.BtcOutput) {
-	log.Print("[DEBUG] addUserTransactionsToDB")
-
-	sel := bson.M{"userID": userID}
-	update := bson.M{"$push": bson.M{"transactions": *output}}
-	err := usersData.Update(sel, update)
-	if err != nil {
-		fmt.Printf("[ERR] push transaction to db: %s\n", err.Error())
-	}
-	log.Print("[DEBUG] addUserTransactionsToDB done")
-}
-
-func parseBlockTransaction(txHash *chainhash.Hash) (*store.BTCTransaction, error) {
-	log.Printf("[DEBUG] parseBlockTransaction()")
-	currentRaw, err := rpcClient.GetRawTransactionVerbose(txHash)
-	if err != nil {
-		fmt.Printf("[ERR] parseBlockTransaction: %s\n", err.Error())
-		return nil, err
-	}
-
-	blockTx := serealizeBTCTransaction(currentRaw)
-
-	log.Printf("[DEBUG] done parseBlockTransaction: %+v\n", blockTx.Outputs)
-	// log.Printf("\nMulty-New Tx Found hash: %s, id: %s \n amount: %f , fee: %f , feeRate: %d \n Inputs: %v \n OutPuts: %v \Multy-the best wallet*******************", memPoolTx.hash, memPoolTx.txid, memPoolTx.amount, memPoolTx.fee, memPoolTx.feeRate, memPoolTx.inputs, memPoolTx.outputs)
-
-	return blockTx, nil
 }
