@@ -1,14 +1,6 @@
 package btc
 
-import (
-	"log"
-
-	"github.com/Appscrunch/Multy-back/store"
-	"github.com/btcsuite/btcd/btcjson"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"gopkg.in/mgo.v2/bson"
-)
-
+/*
 //Here we parsing transaction by getting inputs and outputs addresses
 func parseRawMempool(inTx *btcjson.TxRawResult) error {
 	memPoolTx := MultyMempoolTx{size: inTx.Size, hash: inTx.Hash, txid: inTx.Txid}
@@ -121,3 +113,4 @@ func parseRawMempool(inTx *btcjson.TxRawResult) error {
 	log.Printf("[DEBUG] parseRawTransaction: new multy mempool; size=%d", len(memPool))
 	return nil
 }
+*/
