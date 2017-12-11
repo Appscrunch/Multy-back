@@ -3,17 +3,11 @@ package btc
 import (
 	"fmt"
 
-	"github.com/Appscrunch/Multy-back/store"
 	"github.com/btcsuite/btcd/rpcclient"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
 	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
-	"encoding/json"
 	"time"
 
-	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 
 	"log"
@@ -72,24 +66,7 @@ func RunProcess() error {
 
 	usersData = db.DB("userDB").C("userCollection")
 
-	mempoolRates = db.DB("BTCMempool").C("Rates")
-
 	ntfnHandlers := rpcclient.NotificationHandlers{
-		OnTxAcceptedVerbose: func(txDetails *btcjson.TxRawResult) {
-			go parseRawTransaction(txDetails)
-		},
-		OnRedeemingTx: func(transaction *btcutil.Tx, details *btcjson.BlockDetails) {
-			log.Println("OnRedeemingTx ", transaction, details)
-		},
-		OnUnknownNotification: func(method string, params []json.RawMessage) {
-			log.Println("OnUnknowNotification: ", method, params)
-		},
-		OnFilteredBlockDisconnected: func(height int32, header *wire.BlockHeader) {
-			log.Printf("Block disconnected: %v (%d) %v",
-				header.BlockHash(), height, header.Timestamp)
-			//TODO update mem pool actual transactions
-
-		},
 		OnBlockConnected: func(hash *chainhash.Hash, height int32, t time.Time) {
 			log.Printf("[DEBUG] OnBlockConnected: %v (%d) %v", hash, height, t)
 			go getAndParseNewBlock(hash)
@@ -107,13 +84,6 @@ func RunProcess() error {
 		return err
 	}
 	log.Println("NotifyBlocks: Registration Complete")
-
-	if err = rpcClient.NotifyNewTransactions(true); err != nil {
-		return err
-	}
-
-	//When first launch here we are getting all mem pool transactions
-	go getAllMempool()
 
 	rpcClient.WaitForShutdown()
 	return nil
@@ -287,3 +257,4 @@ func parseBlockTransaction(txHash *chainhash.Hash) (*store.BTCTransaction, error
 
 	return blockTx, nil
 }
+

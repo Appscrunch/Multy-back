@@ -33,7 +33,7 @@ func simulateSendNewTransactions() {
 
 func InitHandlers() (*rpcclient.Client, chan BtcTransactionWithUserID, error) {
 	chToClient = make(chan BtcTransactionWithUserID, 0)
-	//go simulateSendNewTransactions()
+	go simulateSendNewTransactions()
 
 	go RunProcess()
 	return rpcClient, chToClient, nil

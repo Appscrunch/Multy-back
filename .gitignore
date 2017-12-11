@@ -5,3 +5,5 @@ cmd/config.yml
 vendor/gopkg.in
 vendor/github.com
 vendor/golang.org
+
+.gitignore
