@@ -69,7 +69,8 @@ func RunProcess() error {
 
 	db, err := mgo.Dial("192.168.0.121:27017")
 	fmt.Println(err)
-	usersData = db.DB("cyberkek").C("users")
+
+	usersData = db.DB("userDB").C("userCollection")
 
 	mempoolRates = db.DB("BTCMempool").C("Rates")
 
@@ -182,45 +183,52 @@ func getAndParseNewBlock(hash *chainhash.Hash) {
 			log.Println("[ERR] parseBlockTransaction:  ", err.Error())
 		}
 
-		// !notify users that their transactions was applied in a block
-		if err := usersData.Find(bson.M{"transactions.txhash": txHashStr}).One(&user); err != nil {
-			log.Printf("[ERR] getAndParseNewBlock: usersData.Find: %s\n", err.Error())
-			continue
-		}
+		log.Printf("[DEBUG] getAndParseNewBlock: Find hashStr=%s/user.UserID=%s\n", txHashStr, user.UserID)
 
-		if user.Wallets == nil {
-			log.Println("[WARN] getAndParseNewBlock:  wallet is empty")
-			continue
-		}
+		for addr := range blockTx.Outputs {
+			log.Printf("[DEBUG] addr=[%s]\n", addr)
+			if err := usersData.Find(bson.M{"wallets.addresses.address": addr}).One(&user); err != nil {
+				log.Printf("[ERR] getAndParseNewBlock: usersData.Find: %s\n", err.Error())
+				continue
+			}
+			log.Printf("[DEBUG] user=%+v", user)
+			// check this out
 
-		var output *store.BtcOutput
-		var ok bool
-		for _, wallet := range user.Wallets {
-			for _, addr := range wallet.Adresses {
-				if output, ok = blockTx.Outputs[addr.Address]; !ok {
-					continue
+			// !notify users that their transactions was applied in a block
+
+			if user.Wallets == nil {
+				log.Println("[WARN] getAndParseNewBlock:  wallet is empty")
+				continue
+			}
+
+			var output *store.BtcOutput
+			var ok bool
+			for _, wallet := range user.Wallets {
+				for _, addr := range wallet.Adresses {
+					if output, ok = blockTx.Outputs[addr.Address]; !ok {
+						continue
+					}
+					// got output with our address; notify user about it
+					log.Println("[DEBUG] getAndParseNewBlock: address=", addr)
+					go addUserTransactionsToDB(user.UserID, output)
+					chToClient <- CreateBtcTransactionWithUserID(addr.Address, user.UserID, txOut+" block", txHashStr, output.Amount)
 				}
-				// got output with our address; notify user about it
-				log.Println("[DEBUG] getAndParseNewBlock: address=", addr)
-				go addUserTransactionsToDB(user.UserID, output)
-				chToClient <- CreateBtcTransactionWithUserID(addr.Address, user.UserID, txOut+" block", txHashStr, output.Amount)
+			}
+		}
+		log.Println("[DEBUG] hash iteration logic transactions done")
+
+		for _, tx := range blockMSG.Transactions {
+			for index, memTx := range memPool {
+				if memTx.hash == tx.TxHash().String() {
+					//TODO remove transaction from mempool
+					//TODO update fee rates table
+					//TODO check if tx is of our client
+					//TODO is so -> notify client
+					memPool = append(memPool[:index], memPool[index+1:]...)
+				}
 			}
 		}
 	}
-	log.Println("[DEBUG] hash iteration logic transactions done")
-
-	for _, tx := range blockMSG.Transactions {
-		for index, memTx := range memPool {
-			if memTx.hash == tx.TxHash().String() {
-				//TODO remove transaction from mempool
-				//TODO update fee rates table
-				//TODO check if tx is of our client
-				//TODO is so -> notify client
-				memPool = append(memPool[:index], memPool[index+1:]...)
-			}
-		}
-	}
-
 	log.Println("[DEBUG] getNewBlock() done")
 }
 
@@ -231,7 +239,6 @@ func serealizeBTCTransaction(currentTx *btcjson.TxRawResult) *store.BTCTransacti
 		Time: time.Now(),
 	}
 
-	log.Printf("[DEBUG] blocktx=%+v\n", blockTx)
 	outputsAll := currentTx.Vout
 
 	outputsMultyUsers := make(map[string]*store.BtcOutput, 0)
@@ -249,6 +256,7 @@ func serealizeBTCTransaction(currentTx *btcjson.TxRawResult) *store.BTCTransacti
 		}
 	}
 	blockTx.Outputs = outputsMultyUsers
+	log.Printf("[DEBUG] blocktx=%+v\n", blockTx)
 	return &blockTx
 }
 
@@ -256,7 +264,7 @@ func addUserTransactionsToDB(userID string, output *store.BtcOutput) {
 	log.Print("[DEBUG] addUserTransactionsToDB")
 
 	sel := bson.M{"userID": userID}
-	update := bson.M{"$push": bson.M{"transactions": output}}
+	update := bson.M{"$push": bson.M{"transactions": *output}}
 	err := usersData.Update(sel, update)
 	if err != nil {
 		fmt.Printf("[ERR] push transaction to db: %s\n", err.Error())

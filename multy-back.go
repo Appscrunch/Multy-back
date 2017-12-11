@@ -79,7 +79,17 @@ func (multy *Multy) initRoute(address string) error {
 	multy.route = router
 	multy.socketIO = socketIOServer
 
-	restClient, err := client.SetRestHandlers(multy.userStore, router, multy.btcClient)
+	restClient, err := client.SetRestHandlers(multy.userStore, client.BTCApiConf{
+		Token: "6b4e9ead6afe4803bd1e2d22b24b52ad",
+		Coin:  "btc",
+		Chain: "test3",
+	},
+		client.BTCApiConf{
+			Token: "6b4e9ead6afe4803bd1e2d22b24b52ad",
+			Coin:  "btc",
+			Chain: "main",
+		},
+		router, multy.btcClient)
 	if err != nil {
 		return err
 	}

@@ -16,8 +16,7 @@ func parseRawTransaction(inTx *btcjson.TxRawResult) error {
 
 	inputs := inTx.Vin
 
-	var inputSum float64 = 0
-	var outputSum float64 = 0
+	var inputSum, outputSum float64 = 0, 0
 
 	for j := 0; j < len(inputs); j++ {
 		input := inputs[j]

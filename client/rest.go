@@ -10,6 +10,7 @@ import (
 
 	"github.com/Appscrunch/Multy-back/currencies"
 	"github.com/Appscrunch/Multy-back/store"
+	"github.com/blockcypher/gobcy"
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
@@ -17,25 +18,43 @@ import (
 )
 
 const (
-	msgErrHeaderError          = "wrong authorization headers"
-	msgErrRequestBodyError     = "missing request body params"
-	msgErrUserNotFound         = "user not found in db"
-	msgErrRatesError           = "internal server error rates"
-	msgErrDecodeWalletIndexErr = "wrong wallet index"
-	msgErrNoSpendableOuts      = "No spendable outputs"
+	msgErrHeaderError           = "wrong authorization headers"
+	msgErrRequestBodyError      = "missing request body params"
+	msgErrUserNotFound          = "user not found in db"
+	msgErrRatesError            = "internal server error rates"
+	msgErrDecodeWalletIndexErr  = "wrong wallet index"
+	msgErrNoSpendableOuts       = "no spendable outputs"
+	msgErrDecodeCurIndexErr     = "wrong currency index"
+	msgErrAdressBalance         = "empty address or 3-rd party server error"
+	msgErrChainIsNotImplemented = "current chain is not implemented"
 )
 
 type RestClient struct {
 	middlewareJWT *GinJWTMiddleware
 	userStore     store.UserStore
 	rpcClient     *rpcclient.Client
+	// ballance api for test net
+	apiBTCTest     gobcy.API
+	btcConfTestnet BTCApiConf
+	// ballance api for main net
+	apiBTCMain     gobcy.API
+	btcConfMainnet BTCApiConf
 }
 
-func SetRestHandlers(userDB store.UserStore, r *gin.Engine, clientRPC *rpcclient.Client) (*RestClient, error) {
+type BTCApiConf struct {
+	Token, Coin, Chain string
+}
 
+func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf, r *gin.Engine, clientRPC *rpcclient.Client) (*RestClient, error) {
 	restClient := &RestClient{
 		userStore: userDB,
 		rpcClient: clientRPC,
+
+		btcConfTestnet: btcConfTest,
+		btcConfMainnet: btcConfMain,
+
+		apiBTCTest: gobcy.API{btcConfTest.Token, btcConfTest.Coin, btcConfTest.Chain},
+		apiBTCMain: gobcy.API{btcConfMain.Token, btcConfMain.Coin, btcConfMain.Chain},
 	}
 
 	initMiddlewareJWT(restClient)
@@ -45,7 +64,7 @@ func SetRestHandlers(userDB store.UserStore, r *gin.Engine, clientRPC *rpcclient
 	v1 := r.Group("/api/v1")
 	v1.Use(restClient.middlewareJWT.MiddlewareFunc())
 	{
-		v1.POST("/wallet", restClient.addWallet())
+		v1.POST("/wallet/:curencyid", restClient.addWallet())
 
 		v1.POST("/address", restClient.addAddress())
 
@@ -57,7 +76,10 @@ func SetRestHandlers(userDB store.UserStore, r *gin.Engine, clientRPC *rpcclient
 
 		v1.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice()) // rgb(255, 0, 0) полностью меняем
 
-		v1.POST("/transaction/send", restClient.sendRawTransaction())
+		v1.POST("/transaction/send/:currencyid", restClient.sendRawTransaction())
+
+		v1.GET("/address/ballance/:currencyid/:address", restClient.getAdressBalance())
+
 		// v1.GET("/outputs/spendable", restClient.getSpendbleOutputs())
 		//
 
@@ -418,6 +440,74 @@ type RawTx struct { // remane RawClientTransaction
 	AllowHighFees bool   `json:"allowHighFees"` // hardcode true, remove field
 }
 
+func (restClient *RestClient) getAdressBalance() gin.HandlerFunc { //recieve rgb(255, 0, 0)
+	return func(c *gin.Context) {
+		address := c.Param("address")
+		currencyID, err := strconv.Atoi(c.Param("currencyid"))
+		log.Printf("[DEBUG] getAdressBalance [%d] \t[addr=%s]\n", currencyID, c.Request.RemoteAddr)
+		if err != nil {
+			log.Printf("[ERR] getAdressBalance: non int currencyID:[%d] %s \t[addr=%s]\n", currencyID, err.Error(), c.Request.RemoteAddr)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":     http.StatusBadRequest,
+				"message":  msgErrDecodeCurIndexErr,
+				"ballance": nil,
+			})
+			return
+		}
+		var (
+			code     int
+			message  string
+			ballance int
+		)
+
+		switch currencyID {
+		case currencies.Testnet:
+			addr, err := restClient.apiBTCTest.GetAddr(address, nil)
+			if err != nil {
+				log.Printf("[ERR] getAdressBalance: restClient.apiBTCTest.GetAddr : %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+				code = http.StatusInternalServerError
+				message = http.StatusText(http.StatusInternalServerError)
+				ballance = 0
+			} else {
+				code = http.StatusOK
+				message = http.StatusText(http.StatusOK)
+				ballance = addr.Balance
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"code":     code,
+				"message":  message,
+				"ballance": ballance,
+			})
+
+		case currencies.Bitcoin:
+			addr, err := restClient.apiBTCMain.GetAddr(address, nil)
+			if err != nil {
+				log.Printf("[ERR] getAdressBalance: restClient.apiBTCMain.GetAddr : %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+				code = http.StatusInternalServerError
+				message = http.StatusText(http.StatusInternalServerError)
+				ballance = 0
+				return
+			} else {
+				code = http.StatusOK
+				message = http.StatusText(http.StatusOK)
+				ballance = addr.Balance
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"code":     code,
+				"message":  message,
+				"ballance": ballance,
+			})
+		default:
+			c.JSON(http.StatusOK, gin.H{
+				"code":     http.StatusBadRequest,
+				"message":  msgErrChainIsNotImplemented,
+				"ballance": 0,
+			})
+		}
+	}
+}
+
 func (restClient *RestClient) blank() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -470,24 +560,6 @@ func (restClient *RestClient) getTickets() gin.HandlerFunc { // shapeshift
 			"limit":    to["limit"],
 			"minimum":  to["minimum"],
 			"minerFee": to["minerFee"],
-		})
-	}
-}
-
-func (restClient *RestClient) getAdressBalance() gin.HandlerFunc {
-	return func(c *gin.Context) { //recieve rgb(255, 0, 0)
-		addr := c.Param("addr")
-		url := "https://blockchain.info/q/addressbalance/" + addr
-		response, err := http.Get(url)
-		responseErr(c, err, http.StatusServiceUnavailable) // 503
-
-		data, err := ioutil.ReadAll(response.Body)
-		responseErr(c, err, http.StatusInternalServerError) // 500
-
-		b, err := strconv.Atoi(string(data))
-
-		c.JSON(http.StatusOK, gin.H{
-			"ballance": b,
 		})
 	}
 }
