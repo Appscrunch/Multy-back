@@ -264,7 +264,7 @@ func addUserTransactionsToDB(userID string, output *store.BtcOutput) {
 	log.Print("[DEBUG] addUserTransactionsToDB")
 
 	sel := bson.M{"userID": userID}
-	update := bson.M{"$push": bson.M{"transactions": output}}
+	update := bson.M{"$push": bson.M{"transactions": *output}}
 	err := usersData.Update(sel, update)
 	if err != nil {
 		fmt.Printf("[ERR] push transaction to db: %s\n", err.Error())
