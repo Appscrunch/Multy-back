@@ -72,7 +72,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 
 		v1.GET("/transaction/feerate", restClient.getFeeRate())
 
-		v1.GET("/outputs/spendable/:walletIndex", restClient.getSpendableOutputs())
+		v1.GET("/outputs/spendable/:currencyid/:addr", restClient.getSpendableOutputs())
 
 		v1.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice()) // rgb(255, 0, 0) полностью меняем
 
@@ -360,61 +360,87 @@ func (restClient *RestClient) getSpendableOutputs() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
 				"message": msgErrHeaderError,
+				"outs":    nil,
 			})
 			return
 		}
-
-		token := authHeader[1]
-
-		outWallet := store.Wallet{}
-
-		walletIndex, err := strconv.Atoi(c.Param("walletIndex"))
+		currencyID, err := strconv.Atoi(c.Param("currencyid"))
+		log.Printf("[DEBUG] getSpendableOutputs [%d] \t[addr=%s]\n", currencyID, c.Request.RemoteAddr)
 		if err != nil {
-			log.Printf("[ERR] getSpendableOutputs: non int wallet index: %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
-			c.JSON(http.StatusOK, gin.H{
+			log.Printf("[ERR] getSpendableOutputs: non int currencyID:[%d] %s \t[addr=%s]\n", currencyID, err.Error(), c.Request.RemoteAddr)
+			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
-				"message": msgErrDecodeWalletIndexErr,
-				"outs":    outWallet,
+				"message": msgErrDecodeCurIndexErr,
+				"outs":    nil,
 			})
 			return
 		}
 
-		var user store.User
+		address := c.Param("addr")
+		params := map[string]string{
+			"unspentOnly": "true",
+		}
 		var (
-			code    int
-			message string
+			code     int
+			message  string
+			addrInfo gobcy.Addr
 		)
 
-		sel := bson.M{"devices.JWT": token, "wallets.walletIndex": walletIndex}
+		switch currencyID {
+		case currencies.Testnet:
+			addrInfo, err = restClient.apiBTCTest.GetAddrFull(address, params)
+			if err != nil {
+				log.Printf("[ERR] getSpendableOutputs: restClient.apiBTCMain.GetAddrFull : %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+				code = http.StatusInternalServerError
+				message = http.StatusText(http.StatusInternalServerError)
+			} else {
+				code = http.StatusOK
+				message = http.StatusText(http.StatusOK)
+			}
 
-		if err = restClient.userStore.FindUser(sel, &user); err != nil {
-			log.Printf("[ERR] getSpendableOutputs: restClient.userStore.FindUser: %s\t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
-			code = http.StatusBadRequest
-			message = msgErrUserNotFound
-		} else {
-			code = http.StatusOK
-			message = http.StatusText(http.StatusOK)
-		}
-
-	loop:
-		for _, wallet := range user.Wallets {
-			if wallet.WalletIndex == walletIndex {
-				outWallet = wallet
-				break loop
+		case currencies.Bitcoin:
+			addrInfo, err = restClient.apiBTCMain.GetAddrFull(address, params)
+			if err != nil {
+				log.Printf("[ERR] getSpendableOutputs: restClient.apiBTCMain.GetAddrFull : %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
+				code = http.StatusInternalServerError
+				message = http.StatusText(http.StatusInternalServerError)
+			} else {
+				code = http.StatusOK
+				message = http.StatusText(http.StatusOK)
 			}
 		}
 
-		if len(outWallet.Adresses) == 0 {
-			message = msgErrNoSpendableOuts
-		} else {
-			c.JSON(http.StatusOK, gin.H{
-				"code":    code,
-				"message": message,
-				"outs":    outWallet,
-			})
+		var spOuts []SpendableOutputs
+
+		for _, v := range addrInfo.TXs {
+			for key, output := range v.Outputs {
+				for _, addr := range output.Addresses {
+					if addr == address {
+						spOuts = append(spOuts, SpendableOutputs{
+							TxID:        v.Hash,
+							TxOutID:     key,
+							TxOutAmount: output.Value,
+							TxOutScript: output.Script,
+						})
+					}
+				}
+			}
 		}
 
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": message,
+			"outs":    spOuts,
+		})
+
 	}
+}
+
+type SpendableOutputs struct {
+	TxID        string `json:"txid"`
+	TxOutID     int    `json:"txoutid"`
+	TxOutAmount int    `json:"txoutamount"`
+	TxOutScript string `json:"txoutscript"`
 }
 
 func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
