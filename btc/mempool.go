@@ -1,5 +1,19 @@
 package btc
 
+import (
+	"fmt"
+
+	"github.com/btcsuite/btcd/btcjson"
+)
+
+func parseMempoolTransaction(inTx *btcjson.TxRawResult) error {
+	for num, out := range inTx.Vout {
+		fmt.Println("addres", num, out.ScriptPubKey.Addresses)
+	}
+
+	return nil
+}
+
 /*
 //Here we parsing transaction by getting inputs and outputs addresses
 func parseRawMempool(inTx *btcjson.TxRawResult) error {

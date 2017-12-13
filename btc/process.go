@@ -3,6 +3,7 @@ package btc
 import (
 	"fmt"
 
+	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/rpcclient"
 	mgo "gopkg.in/mgo.v2"
 
@@ -37,12 +38,7 @@ type rpcClientWrapper struct {
 
 var usersData *mgo.Collection
 
-var connCfg = &rpcclient.ConnConfig{
-	Host:     "192.168.0.121:18334",
-	User:     "multy",
-	Pass:     "multy",
-	Endpoint: "ws",
-	Certificates: []byte(`-----BEGIN CERTIFICATE-----
+var Cert = `-----BEGIN CERTIFICATE-----
 MIICPDCCAZ2gAwIBAgIQf8XOycg2EQ8wHpXsZJSy7jAKBggqhkjOPQQDBDAjMREw
 DwYDVQQKEwhnZW5jZXJ0czEOMAwGA1UEAxMFYW50b24wHhcNMTcxMTI2MTY1ODQ0
 WhcNMjcxMTI1MTY1ODQ0WjAjMREwDwYDVQQKEwhnZW5jZXJ0czEOMAwGA1UEAxMF
@@ -55,7 +51,14 @@ AAAAAAAAAAAAAAAAAYcEwKgAeYcQ/oAAAAAAAAByhcL//jB99jAKBggqhkjOPQQD
 BAOBjAAwgYgCQgCfs9tYHA1nvU5HSdNeHSZCR1WziHYuZHmGE7eqAWQjypnVbFi4
 pccvzDFvESf8DG4FVymK4E2T/RFnD9qUDiMzPQJCATkCMzSKcyYlsL7t1ZgQLwAK
 UpQl3TYp8uTf+UWzBz0uoEbB4CFeE2G5ZzrVK4XWZK615sfVFSorxHOOZaLwZEEL
------END CERTIFICATE-----`),
+-----END CERTIFICATE-----`
+
+var connCfg = &rpcclient.ConnConfig{
+	Host:         "192.168.0.121:18334",
+	User:         "multy",
+	Pass:         "multy",
+	Endpoint:     "ws",
+	Certificates: []byte(Cert),
 }
 
 func RunProcess() error {
@@ -71,6 +74,12 @@ func RunProcess() error {
 			log.Printf("[DEBUG] OnBlockConnected: %v (%d) %v", hash, height, t)
 			go getAndParseNewBlock(hash)
 		},
+		OnTxAcceptedVerbose: func(txDetails *btcjson.TxRawResult) {
+			log.Printf("[DEBUG] OnTxAcceptedVerbose: new transaction id = %v", txDetails.Txid)
+			// notify on new in
+			// notify on new out
+			parseMempoolTransaction(txDetails)
+		},
 	}
 
 	rpcClient, err = rpcclient.New(connCfg, &ntfnHandlers)
@@ -84,6 +93,12 @@ func RunProcess() error {
 		return err
 	}
 	log.Println("NotifyBlocks: Registration Complete")
+
+	// Register for new transaction in mempool notifications.
+	if err = rpcClient.NotifyNewTransactions(true); err != nil {
+		return err
+	}
+	log.Println("NotifyNewTransactions: Registration Complete")
 
 	rpcClient.WaitForShutdown()
 	return nil

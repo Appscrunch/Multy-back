@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/Appscrunch/Multy-back/currencies"
 	"github.com/Appscrunch/Multy-back/store"
 	"github.com/blockcypher/gobcy"
@@ -64,7 +65,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 	v1 := r.Group("/api/v1")
 	v1.Use(restClient.middlewareJWT.MiddlewareFunc())
 	{
-		v1.POST("/wallet/:curencyid", restClient.addWallet())
+		v1.POST("/wallet", restClient.addWallet())
 
 		v1.POST("/address", restClient.addAddress())
 
@@ -445,11 +446,29 @@ type SpendableOutputs struct {
 
 func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		rawTx := RawTx{}
-		decodeBody(c, &rawTx)
-		txid, err := restClient.rpcClient.SendCyberRawTransaction(rawTx.Transaction, rawTx.AllowHighFees)
+
+		connCfg := &rpcclient.ConnConfig{
+			Host:         "192.168.0.121:18334",
+			User:         "multy",
+			Pass:         "multy",
+			HTTPPostMode: true,  // Bitcoin core only supports HTTP POST mode
+			DisableTLS:   false, // Bitcoin core does not provide TLS by default
+			Certificates: []byte(btc.Cert),
+		}
+		// Notice the notification parameter is nil since notifications are
+		// not supported in HTTP POST mode.
+		client, err := rpcclient.New(connCfg, nil)
 		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
+			log.Fatal(err)
+		}
+		defer client.Shutdown()
+
+		var rawTx RawTx
+
+		decodeBody(c, &rawTx)
+		txid, err := client.SendCyberRawTransaction(rawTx.Transaction, true)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
 				"message": err.Error(),
 			})
@@ -462,8 +481,7 @@ func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
 }
 
 type RawTx struct { // remane RawClientTransaction
-	Transaction   string `json:"transaction"`   //HexTransaction
-	AllowHighFees bool   `json:"allowHighFees"` // hardcode true, remove field
+	Transaction string `json:"transaction"` //HexTransaction
 }
 
 func (restClient *RestClient) getAdressBalance() gin.HandlerFunc { //recieve rgb(255, 0, 0)
@@ -665,7 +683,7 @@ func (restClient *RestClient) getTransactionInfo() gin.HandlerFunc {
 //
 // }
 
-func (restClient *RestClient) sendTransaction() gin.HandlerFunc {
+func (restClient *RestClient) sendTransactionOld() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		curID := c.Param("curid")
 		i, err := strconv.Atoi(curID)
@@ -677,7 +695,8 @@ func (restClient *RestClient) sendTransaction() gin.HandlerFunc {
 		case currencies.Bitcoin:
 			var tx Tx
 			decodeBody(c, &tx)
-			txid, err := restClient.rpcClient.SendCyberRawTransaction(tx.Transaction, tx.AllowHighFees)
+			tr := true
+			txid, err := restClient.rpcClient.SendCyberRawTransaction(tx.Transaction, tr)
 			responseErr(c, err, http.StatusInternalServerError) // 500
 
 			c.JSON(http.StatusOK, gin.H{
