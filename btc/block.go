@@ -11,9 +11,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-func getAndParseNewBlock(hash *chainhash.Hash) {
+func (btcC *BTCClient) getAndParseNewBlock(hash *chainhash.Hash) {
 	log.Printf("[DEBUG] getNewBlock()")
-	blockMSG, err := rpcClient.GetBlock(hash)
+	blockMSG, err := btcC.rpcClient.GetBlock(hash)
 	if err != nil {
 		log.Println("[ERR] getAndParseNewBlock: ", err.Error())
 	}
@@ -35,7 +35,7 @@ func getAndParseNewBlock(hash *chainhash.Hash) {
 	for _, txHash := range BlockTxHashes {
 		txHashStr = txHash.String()
 
-		blockTx, err := parseBlockTransaction(&txHash)
+		blockTx, err := btcC.parseBlockTransaction(&txHash)
 		if err != nil {
 			log.Println("[ERR] parseBlockTransaction:  ", err.Error())
 		}
@@ -61,8 +61,8 @@ func getAndParseNewBlock(hash *chainhash.Hash) {
 
 						// got output with our address; notify user about it
 						log.Println("[DEBUG] getAndParseNewBlock: address=", addr)
-						addUserTransactionsToDB(user.UserID, output)
-						chToClient <- CreateBtcTransactionWithUserID(addr.Address, user.UserID, txOut+" block", txHashStr, output.Amount)
+						btcC.addUserTransactionsToDB(user.UserID, output)
+						btcC.chToClient <- CreateBtcTransactionWithUserID(addr.Address, user.UserID, txOut+" block", txHashStr, output.Amount)
 					}
 				}
 			}
@@ -84,21 +84,21 @@ func getAndParseNewBlock(hash *chainhash.Hash) {
 	log.Println("[DEBUG] getNewBlock() done")
 }
 
-func parseBlockTransaction(txHash *chainhash.Hash) (*store.BTCTransaction, error) {
+func (btcC *BTCClient) parseBlockTransaction(txHash *chainhash.Hash) (*store.BTCTransaction, error) {
 	log.Printf("[DEBUG] parseBlockTransaction()")
-	currentRaw, err := rpcClient.GetRawTransactionVerbose(txHash)
+	currentRaw, err := btcC.rpcClient.GetRawTransactionVerbose(txHash)
 	if err != nil {
 		fmt.Printf("[ERR] parseBlockTransaction: %s\n", err.Error())
 		return nil, err
 	}
 
-	blockTx := serealizeBTCTransaction(currentRaw)
+	blockTx := btcC.serealizeBTCTransaction(currentRaw)
 	log.Printf("[DEBUG] done parseBlockTransaction: %+v\n", blockTx.Outputs)
 
 	return blockTx, nil
 }
 
-func serealizeBTCTransaction(currentRaw *btcjson.TxRawResult) *store.BTCTransaction {
+func (btcC *BTCClient) serealizeBTCTransaction(currentRaw *btcjson.TxRawResult) *store.BTCTransaction {
 	blockTx := store.BTCTransaction{
 		Hash: currentRaw.Hash,
 		Txid: currentRaw.Txid,
@@ -129,7 +129,7 @@ func serealizeBTCTransaction(currentRaw *btcjson.TxRawResult) *store.BTCTransact
 	return &blockTx
 }
 
-func addUserTransactionsToDB(userID string, output *store.BtcOutput) {
+func (btcC *BTCClient) addUserTransactionsToDB(userID string, output *store.BtcOutput) {
 	log.Print("[DEBUG] addUserTransactionsToDB")
 
 	sel := bson.M{"userID": userID}
