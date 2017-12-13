@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/Appscrunch/Multy-back/currencies"
 	"github.com/Appscrunch/Multy-back/store"
 	"github.com/blockcypher/gobcy"
@@ -446,27 +445,9 @@ type SpendableOutputs struct {
 
 func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
-		connCfg := &rpcclient.ConnConfig{
-			Host:         "192.168.0.121:18334",
-			User:         "multy",
-			Pass:         "multy",
-			HTTPPostMode: true,  // Bitcoin core only supports HTTP POST mode
-			DisableTLS:   false, // Bitcoin core does not provide TLS by default
-			Certificates: []byte(btc.Cert),
-		}
-		// Notice the notification parameter is nil since notifications are
-		// not supported in HTTP POST mode.
-		client, err := rpcclient.New(connCfg, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer client.Shutdown()
-
 		var rawTx RawTx
-
 		decodeBody(c, &rawTx)
-		txid, err := client.SendCyberRawTransaction(rawTx.Transaction, true)
+		txid, err := restClient.rpcClient.SendCyberRawTransaction(rawTx.Transaction, true)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,

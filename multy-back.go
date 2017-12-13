@@ -47,7 +47,7 @@ func Init(conf *Configuration) (*Multy, error) {
 
 	// TODO: add channels for communitation
 	log.Println("[DEBUG] InitHandlers")
-	btcClient, btcClientCh, err := btc.InitHandlers()
+	btcClient, btcClientCh, err := btc.InitHandlers(connCfg)
 	if err != nil {
 		return nil, fmt.Errorf("blockchain api initialization: %s", err.Error())
 	}

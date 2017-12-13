@@ -20,6 +20,7 @@ func main() {
 		"\tbranch: \t%s\n"+
 		"\tcommit: \t%s\n"+
 		"\tbuild time: \t%s\n", branch, commit, buildtime)
+
 	log.Println(serviceInfo)
 
 	conf, err := mylty.GetConfig(defaultConfigFile)
