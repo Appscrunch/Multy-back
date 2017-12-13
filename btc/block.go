@@ -39,7 +39,6 @@ func getAndParseNewBlock(hash *chainhash.Hash) {
 		if err != nil {
 			log.Println("[ERR] parseBlockTransaction:  ", err.Error())
 		}
-		log.Printf("[DEBUG] getAndParseNewBlock: Find hashStr=%s/user.UserID=%s\n", txHashStr, user.UserID)
 
 		for addr, _ := range blockTx.Outputs {
 
@@ -49,6 +48,7 @@ func getAndParseNewBlock(hash *chainhash.Hash) {
 				continue
 			}
 			log.Printf("[DEBUG] user=%+v", user)
+			log.Printf("[DEBUG] getAndParseNewBlock: Find hashStr=%s/user.UserID=%s\n", txHashStr, user.UserID)
 			// check this out
 
 			// !notify users that their transactions was applied in a block
