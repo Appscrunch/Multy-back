@@ -32,7 +32,7 @@ func (sConnPool *SocketIOConnectedPool) listenBTC() {
 	for {
 		select {
 		case newTransactionWithUserID = <-sConnPool.btcCh:
-			// log.Printf("got new transaction: %+v\n", newTransactionWithUserID)
+			log.Printf("got new transaction: %+v\n", newTransactionWithUserID)
 			/*	if _, ok := sConnPool.users[newTransactionWithUserID.UserID]; !ok {
 					break
 				}
@@ -89,6 +89,6 @@ type SocketIOUser struct {
 func newSocketIOUser(id string, connectedUser *SocketIOUser, btcCh chan btc.BtcTransactionWithUserID, conn *gosocketio.Channel) *SocketIOUser {
 	connectedUser.conns = make(map[string]*gosocketio.Channel, 0)
 	connectedUser.conns[id] = conn
-
+	//go connectedUser.sendExchange()
 	return connectedUser
 }
