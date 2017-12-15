@@ -1,11 +1,11 @@
 package multyback
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"os"
 
 	"github.com/btcsuite/btcd/rpcclient"
-	"github.com/go-yaml/yaml"
 )
 
 var Cert = `-----BEGIN CERTIFICATE-----
@@ -62,7 +62,7 @@ func GetConfig(confiFile string) (*Configuration, error) {
 	}
 
 	conf := &Configuration{}
-	err = yaml.Unmarshal([]byte(rawData), conf)
+	err = json.Unmarshal([]byte(rawData), conf)
 	if err != nil {
 		return nil, err
 	}

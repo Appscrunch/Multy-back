@@ -56,13 +56,16 @@ func SetSocketIOHandlers(r *gin.RouterGroup, btcCh chan btc.BtcTransactionWithUs
 			log.Printf("[ERR] get socketio headers: %s\n", err.Error())
 			return
 		}*/
-		userInfo := &SocketIOUser{"1", "2", "4", nil}
+		user := &SocketIOUser{"1", "2", "4", nil}
 
 		connectionID := c.Id()
-		userID := userInfo.userID
+		userID := user.userID
 
-		newConn := newSocketIOUser(connectionID, userInfo, btcCh, c)
+		newConn := newSocketIOUser(connectionID, user, btcCh, c)
 		users.AddUserConn(userID, newConn)
+
+		go user.Subscribe()
+
 		log.Println("[DEBUG] OnConnection done")
 	})
 
