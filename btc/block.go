@@ -1,6 +1,7 @@
 package btc
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -51,8 +52,6 @@ func (btcC *BTCClient) getAndParseNewBlock(hash *chainhash.Hash) {
 			log.Printf("[DEBUG] getAndParseNewBlock: Find hashStr=%s/user.UserID=%s\n", txHashStr, user.UserID)
 			// check this out
 
-			// !notify users that their transactions was applied in a block
-
 			for _, wallet := range user.Wallets {
 				for _, addr := range wallet.Adresses {
 					if output, ok := blockTx.Outputs[addr.Address]; !ok {
@@ -62,7 +61,19 @@ func (btcC *BTCClient) getAndParseNewBlock(hash *chainhash.Hash) {
 						// got output with our address; notify user about it
 						log.Println("[DEBUG] getAndParseNewBlock: address=", addr)
 						btcC.addUserTransactionsToDB(user.UserID, output)
-						btcC.chToClient <- CreateBtcTransactionWithUserID(addr.Address, user.UserID, txOut+" block", txHashStr, output.Amount)
+
+						txMsq := CreateBtcTransactionWithUserID(addr.Address, user.UserID, txOut+" block", txHashStr, output.Amount)
+						newTxJSON, err := json.Marshal(txMsq)
+						if err != nil {
+							log.Printf("[ERR] getAndParseNewBlock: %s\n", err.Error())
+							continue
+						}
+
+						err = btcC.nsqProducer.Publish(topicTransaction, newTxJSON)
+						if err != nil {
+							log.Printf("[ERR] nsq publish new transaction: %s\n", err.Error())
+							return
+						}
 					}
 				}
 			}

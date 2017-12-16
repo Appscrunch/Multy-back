@@ -13,17 +13,19 @@ var (
 	errEmplyConfig = errors.New("empty configuration for datastore")
 )
 
-const (
-	tableUsers   = "userCollection"
-	dbUsers      = "userDB"
-	dbBTCMempool = "BTCMempool" // TODO: create rates store
-	tableRates   = "Rates"      // and send those two fields there
-)
+type Conf struct {
+	Address      string
+	TableUsers   string
+	DBUsers      string
+	DBBTCMempool string
+	TableRates   string
+}
 
 const defaultMongoDBaddr = "192.168.0.121:27017"
 
 type UserStore interface {
-	//GetSession()
+	UserDataCollection() *mgo.Collection
+
 	GetUserByDevice(device bson.M, user *User)
 	Update(sel, update bson.M) error
 	Insert(user User) error
@@ -34,10 +36,32 @@ type UserStore interface {
 }
 
 type MongoUserStore struct {
-	address    string
 	session    *mgo.Session
 	usersData  *mgo.Collection
 	ratessData *mgo.Collection
+	conf       *Conf
+}
+
+func InitUserStore(conf *Conf) (UserStore, error) {
+	if conf.Address == "" {
+		log.Printf("[INFO] empty mongo db address: will be used %s\n", defaultMongoDBaddr)
+		conf.Address = defaultMongoDBaddr
+	}
+
+	uStore := &MongoUserStore{conf: conf}
+	session, err := mgo.Dial(conf.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	uStore.session = session
+	uStore.usersData = uStore.session.DB(conf.DBUsers).C(conf.TableUsers)
+	uStore.ratessData = uStore.session.DB(conf.DBBTCMempool).C(conf.TableRates)
+	return uStore, nil
+}
+
+func (mongo *MongoUserStore) UserDataCollection() *mgo.Collection {
+	return mongo.usersData
 }
 
 func (mongo *MongoUserStore) UpdateUser(sel bson.M, user *User) error {
@@ -62,25 +86,6 @@ func (mongo *MongoUserStore) Insert(user User) error {
 }
 func (mongo *MongoUserStore) GetAllRates(sortBy string, rates *[]RatesRecord) error {
 	return mongo.ratessData.Find(nil).Sort(sortBy).All(rates)
-}
-
-func InitUserStore(address string) (UserStore, error) {
-	if address == "" {
-		log.Printf("[INFO] mongo db address: will be used %s\n", defaultMongoDBaddr)
-		address = defaultMongoDBaddr
-	}
-
-	uStore := &MongoUserStore{
-		address: address,
-	}
-	session, err := mgo.Dial(address)
-	if err != nil {
-		return nil, err
-	}
-	uStore.session = session
-	uStore.usersData = uStore.session.DB(dbUsers).C(tableUsers)
-	uStore.ratessData = uStore.session.DB(dbBTCMempool).C(tableRates)
-	return uStore, nil
 }
 
 func (mongoUserData *MongoUserStore) Close() error {

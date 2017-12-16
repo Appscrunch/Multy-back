@@ -1,14 +1,10 @@
 package client
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
 	"sync"
 	"time"
-
-	"github.com/bitly/go-nsq"
 )
 
 var (
@@ -18,14 +14,14 @@ var (
 
 const (
 	secondsInDay   = 8640
-	numOfChartDots = 120 //12 minutes
+	numOfChartDots = 1200 //12 minutes
 
 	defaultNSQAddr = "127.0.0.1:4150"
 )
 
 type Rates struct {
-	BTCtoUSDDay   map[time.Time]float64
-	echangeSingle *EventExchangeChart
+	BTCtoUSDDay    map[time.Time]float64
+	exchangeSingle *EventExchangeChart
 
 	m *sync.Mutex
 }
@@ -33,9 +29,8 @@ type Rates struct {
 type exchangeChart struct {
 	rates *Rates
 
-	ticker      *time.Ticker
-	interval    int
-	nsqProducer *nsq.Producer
+	ticker   *time.Ticker
+	interval int
 }
 
 type EventExchangeChart struct {
@@ -50,73 +45,60 @@ type EventExchangeChart struct {
 }
 
 func initExchangeChart() (*exchangeChart, error) {
+	log.Println("[DEBUG] initExchangeChart ")
 	chart := &exchangeChart{
 		rates: &Rates{
-			BTCtoUSDDay: make(map[time.Time]float64),
-			m:           &sync.Mutex{},
+			exchangeSingle: &EventExchangeChart{},
+			BTCtoUSDDay:    make(map[time.Time]float64),
+			m:              &sync.Mutex{},
 		},
 		interval: secondsInDay / numOfChartDots,
 	}
 
-	p, err := nsq.NewProducer(defaultNSQAddr, nsq.NewConfig())
-	if err != nil {
-		return nil, fmt.Errorf("exchange chart: NSQ new producer: %s", err.Error())
-	}
-	chart.nsqProducer = p
-	chart.updateRateAll()
+	go chart.run()
 
 	return chart, nil
 
 }
 
 func (eChart *exchangeChart) run() error {
-	eChart.updateRateAll()
+	log.Println("[DEBUG] exchange chart: run")
+	eChart.updateAll()
 	eChart.ticker = time.NewTicker(time.Duration(eChart.interval) * time.Second)
 	log.Printf("[DEBUG] updateExchange: ticker=%ds\n", eChart.interval)
 
 	for {
 		select {
 		case _ = <-eChart.ticker.C:
-			log.Println("[DEBUG] updateExchange ticker")
-			eChart.updateRate()
-
-			exchangesJSON, err := json.Marshal(eChart.rates.echangeSingle)
-			if err != nil {
-				log.Printf("[ERR] exchange chart run: %s\n", err.Error())
-				continue
-			}
-
-			if err = eChart.nsqProducer.Publish("/exchangeChart", exchangesJSON); err != nil {
-				return fmt.Errorf("[ERR] exchange chart: NSQ publish: %s", err.Error())
-			}
+			eChart.update()
 		}
 	}
 }
 
-func (eChart *exchangeChart) updateRate() {
+func (eChart *exchangeChart) update() {
 	log.Printf("[DEBUG] updateExchange; mock implementation\n")
 
 	eChart.rates.m.Lock()
 	defer eChart.rates.m.Unlock()
 
-	eChart.rates.echangeSingle.ETHtoBTC = r1.Float64()*5 + 5
-	eChart.rates.echangeSingle.USDtoBTC = r1.Float64()*5 + 5
-	eChart.rates.echangeSingle.ETHtoBTC = r1.Float64()*5 + 5
+	eChart.rates.exchangeSingle.ETHtoBTC = r1.Float64()*5 + 5
+	eChart.rates.exchangeSingle.USDtoBTC = r1.Float64()*5 + 5
+	eChart.rates.exchangeSingle.ETHtoBTC = r1.Float64()*5 + 5
 
-	eChart.rates.echangeSingle.ETHtoUSD = r1.Float64()*5 + 5
-	eChart.rates.echangeSingle.ETHtoEUR = r1.Float64()*5 + 5
+	eChart.rates.exchangeSingle.ETHtoUSD = r1.Float64()*5 + 5
+	eChart.rates.exchangeSingle.ETHtoEUR = r1.Float64()*5 + 5
 
-	// TODO: do it gracefully
+	// TODO: do it gracefullcy
 	theOldest, theNewest := getExtremRates(eChart.rates.BTCtoUSDDay)
 	delete(eChart.rates.BTCtoUSDDay, theOldest)
 	eChart.rates.BTCtoUSDDay[theNewest.Add(time.Duration(eChart.interval)*time.Second)] = r1.Float64()*5 + 5
 
-	eChart.rates.echangeSingle.BTCtoUSD = eChart.rates.BTCtoUSDDay[theNewest.Add(time.Duration(eChart.interval)*time.Second)]
+	eChart.rates.exchangeSingle.BTCtoUSD = eChart.rates.BTCtoUSDDay[theNewest.Add(time.Duration(eChart.interval)*time.Second)]
 
 	return
 }
 
-func (eChart *exchangeChart) updateRateAll() {
+func (eChart *exchangeChart) updateAll() {
 	log.Printf("[DEBUG] updateExchange; mock implementation\n")
 
 	aDayAgoTime := time.Now()
@@ -128,6 +110,22 @@ func (eChart *exchangeChart) updateRateAll() {
 
 	log.Printf("[DEBUG] updateRateAll: BTCtoUSDDay=%+v/n", eChart.rates.BTCtoUSDDay)
 	return
+}
+
+func (eChart *exchangeChart) getAll() map[time.Time]float64 {
+	log.Printf("[DEBUG] exchange chart: get all exchanges \n")
+
+	eChart.rates.m.Lock()
+	defer eChart.rates.m.Unlock()
+	return eChart.rates.BTCtoUSDDay
+}
+
+func (eChart *exchangeChart) getLast() *EventExchangeChart {
+	log.Printf("[DEBUG] exchange chart: get last exchanges \n")
+
+	eChart.rates.m.Lock()
+	defer eChart.rates.m.Unlock()
+	return eChart.rates.exchangeSingle
 }
 
 func getExtremRates(rates map[time.Time]float64) (time.Time, time.Time) {

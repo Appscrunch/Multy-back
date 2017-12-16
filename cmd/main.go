@@ -7,7 +7,7 @@ import (
 	mylty "github.com/Appscrunch/Multy-back"
 )
 
-const defaultConfigFile = "config.yml"
+const defaultConfigFile = "config.json"
 
 var (
 	branch    string

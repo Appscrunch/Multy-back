@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/Appscrunch/Multy-back/client"
+	"github.com/Appscrunch/Multy-back/store"
 	"github.com/btcsuite/btcd/rpcclient"
 )
 
@@ -23,7 +25,7 @@ pccvzDFvESf8DG4FVymK4E2T/RFnD9qUDiMzPQJCATkCMzSKcyYlsL7t1ZgQLwAK
 UpQl3TYp8uTf+UWzBz0uoEbB4CFeE2G5ZzrVK4XWZK615sfVFSorxHOOZaLwZEEL
 -----END CERTIFICATE-----`
 
-var connCfg = &rpcclient.ConnConfig{
+var btcConnCfg = &rpcclient.ConnConfig{
 	Host:         "192.168.0.121:18334",
 	User:         "multy",
 	Pass:         "multy",
@@ -33,21 +35,15 @@ var connCfg = &rpcclient.ConnConfig{
 	Certificates: []byte(Cert),
 }
 
-// TODO: add yaml tags to structures
-
-// JWTConf is struct with JWT parameters
-type JWTConf struct {
-	Secret      string
-	ElapsedDays int
-}
-
 // Configuration is a struct with all service options
+// TODO: add json tags to structures
 type Configuration struct {
-	Name             string
-	Address          string
-	DataStore        map[string]interface{}
-	JWTConfig        *JWTConf
-	DataStoreAddress string
+	Name         string
+	Database     store.Conf
+	SocketioAddr string
+	RestAddress  string
+	BTCAPIMain   client.BTCApiConf
+	BTCAPITest   client.BTCApiConf
 }
 
 // GetConfig initializes configuration for multy backend

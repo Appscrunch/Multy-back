@@ -5,8 +5,9 @@ import (
 	"log"
 	"time"
 
-	mgo "gopkg.in/mgo.v2"
+	"github.com/bitly/go-nsq"
 
+	"github.com/Appscrunch/Multy-back/store"
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
@@ -15,37 +16,20 @@ import (
 const (
 	txIn  = "incoming"
 	txOut = "outcoming"
+
+	topicTransaction = "btcTransactionUpdate"
 )
 
 type BTCClient struct {
-	chToClient chan BtcTransactionWithUserID
-	rpcClient  *rpcclient.Client
-	rpcConf    *rpcclient.ConnConfig
+	nsqProducer *nsq.Producer
+	rpcClient   *rpcclient.Client
+	rpcConf     *rpcclient.ConnConfig
 }
 
-func (btcC *BTCClient) simulateSendNewTransactions() {
-	for {
-		time.Sleep(time.Second * 2)
-		b := BtcTransactionWithUserID{
-			NotificationMsg: &BtcTransaction{
-				Amount: 5,
-			},
-			UserID: "555",
-		}
-
-		btcC.chToClient <- b
-	}
-}
-
-func InitHandlers(rpcConf *rpcclient.ConnConfig) (*rpcclient.Client, chan BtcTransactionWithUserID, error) {
-	// go simulateSendNewTransactions()
+func InitHandlers(dbStore store.UserStore, rpcConf *rpcclient.ConnConfig) (*rpcclient.Client, error) {
 	fmt.Println("[DEBUG] RunProcess()")
 
-	//var err error
-	db, err := mgo.Dial("192.168.0.121:27017")
-	fmt.Println(err)
-
-	usersData = db.DB("userDB").C("userCollection")
+	usersData = dbStore.UserDataCollection()
 
 	clientBTC := BTCClient{
 		rpcConf: rpcConf,
@@ -67,16 +51,20 @@ func InitHandlers(rpcConf *rpcclient.ConnConfig) (*rpcclient.Client, chan BtcTra
 	rpcClient, err := rpcclient.New(rpcConf, &ntfnHandlers)
 	if err != nil {
 		log.Printf("[ERR] InitHandlers: %s\n", err.Error())
-		return nil, nil, err
+		return nil, err
 	}
 
-	chToClient := make(chan BtcTransactionWithUserID, 0)
-
-	clientBTC.chToClient = chToClient
 	clientBTC.rpcClient = rpcClient
 
+	config := nsq.NewConfig()
+	p, err := nsq.NewProducer("127.0.0.1:4150", config)
+	if err != nil {
+		return nil, fmt.Errorf("nsq producer: %s", err.Error())
+	}
+	clientBTC.nsqProducer = p
+
 	go clientBTC.RunProcess()
-	return rpcClient, chToClient, nil
+	return rpcClient, nil
 }
 
 type BtcTransaction struct {

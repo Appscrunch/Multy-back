@@ -9,8 +9,6 @@ import (
 	"github.com/Appscrunch/Multy-back/store"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
-
-	socketio "github.com/googollee/go-socket.io"
 )
 
 const (
@@ -20,15 +18,13 @@ const (
 
 // Multy is a main struct of service
 type Multy struct {
-	config     *Configuration
+	config *Configuration
+
 	clientPool *client.SocketIOConnectedPool
+	route      *gin.Engine
 
 	userStore store.UserStore
-	route     *gin.Engine
 
-	btcClientCh chan btc.BtcTransactionWithUserID
-
-	socketIO   *socketio.Server
 	btcClient  *rpcclient.Client
 	restClient *client.RestClient
 }
@@ -39,7 +35,7 @@ func Init(conf *Configuration) (*Multy, error) {
 		config: conf,
 	}
 
-	userStore, err := store.InitUserStore(conf.DataStoreAddress)
+	userStore, err := store.InitUserStore(&conf.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -47,17 +43,14 @@ func Init(conf *Configuration) (*Multy, error) {
 
 	// TODO: add channels for communitation
 	log.Println("[DEBUG] InitHandlers")
-	btcClient, btcClientCh, err := btc.InitHandlers(connCfg)
+	btcClient, err := btc.InitHandlers(userStore, btcConnCfg)
 	if err != nil {
 		return nil, fmt.Errorf("blockchain api initialization: %s", err.Error())
 	}
 	log.Println("[INFO] btc handlers initialization done")
 	multy.btcClient = btcClient
-	multy.btcClientCh = btcClientCh
 
-	multy.clientPool = client.InitConnectedPool(btcClientCh)
-
-	if err = multy.initRoute(conf.Address); err != nil {
+	if err = multy.initRoute(conf.SocketioAddr); err != nil {
 		return nil, fmt.Errorf("router initialization: %s", err.Error())
 	}
 
@@ -71,24 +64,18 @@ func (multy *Multy) initRoute(address string) error {
 	gin.SetMode(gin.DebugMode)
 
 	socketIORoute := router.Group("/socketio")
-	socketIOServer, err := client.SetSocketIOHandlers(socketIORoute, multy.btcClientCh, multy.clientPool)
+	socketIOPool, err := client.SetSocketIOHandlers(socketIORoute)
 	if err != nil {
 		return err
 	}
 
 	multy.route = router
-	multy.socketIO = socketIOServer
+	multy.clientPool = socketIOPool
 
-	restClient, err := client.SetRestHandlers(multy.userStore, client.BTCApiConf{
-		Token: "6b4e9ead6afe4803bd1e2d22b24b52ad",
-		Coin:  "btc",
-		Chain: "test3",
-	},
-		client.BTCApiConf{
-			Token: "6b4e9ead6afe4803bd1e2d22b24b52ad",
-			Coin:  "btc",
-			Chain: "main",
-		},
+	restClient, err := client.SetRestHandlers(
+		multy.userStore,
+		multy.config.BTCAPITest,
+		multy.config.BTCAPIMain,
 		router, multy.btcClient)
 	if err != nil {
 		return err
@@ -99,13 +86,13 @@ func (multy *Multy) initRoute(address string) error {
 }
 
 // Run runs service
-func (m *Multy) Run() error {
-	if m.config.Address == "" {
+func (multy *Multy) Run() error {
+	if multy.config.RestAddress == "" {
 		log.Println("[INFO] listening on default addres: ", defaultServerAddress)
 	}
-	m.config.Address = defaultServerAddress
+	multy.config.RestAddress = defaultServerAddress
 
 	log.Println("[DEBUG] running server")
-	m.route.Run(m.config.Address)
+	multy.route.Run(multy.config.RestAddress)
 	return nil
 }
