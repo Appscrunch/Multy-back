@@ -74,46 +74,16 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 	v1.Use(restClient.middlewareJWT.MiddlewareFunc())
 	{
 		v1.POST("/wallet", restClient.addWallet())
-
 		v1.POST("/address", restClient.addAddress())
-
 		v1.GET("/wallets", restClient.getWallets())
-
 		v1.GET("/transaction/feerate", restClient.getFeeRate())
-
 		v1.GET("/outputs/spendable/:currencyid/:addr", restClient.getSpendableOutputs())
-
 		v1.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice())
-
 		v1.POST("/transaction/send/:currencyid", restClient.sendRawTransaction())
-
 		v1.GET("/address/balance/:currencyid/:address", restClient.getAdressBalance())
-
 		v1.GET("/wallet/:walletindex/verbose/", restClient.getWalletVerbose())
-
 		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
-
 		v1.GET("/wallets/restore", restClient.restoreAllWallets())
-
-		// v1.GET("/outputs/spendable", restClient.getSpendbleOutputs())
-		//
-
-		//
-		// v1.POST("/exchange/:exchanger", restClient.exchange())
-		// v1.POST("/sendtransaction/:curid", restClient.sendTransaction())
-		//
-		// // r.GET("/getassetsinfo", restClient.getAssetsInfo()) err rgb(255, 0, 0)
-		//
-		// v1.GET("/getblock/:height", restClient.getBlock())
-		// // r.GET("/getmarkets", restClient.getMarkets())
-		// v1.GET("/gettransactioninfo/:txid", restClient.getTransactionInfo())
-		// v1.GET("/gettickets/:pair", restClient.getTickets())
-		//
-
-		//
-		// v1.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice())
-		// // r.GET("/getactivities/:address/:datefrom/:dateto", restClient.getActivities())
-		// v1.GET("/getaddressbalance/:addr", restClient.getAdressBalance())
 	}
 	return restClient, nil
 }
@@ -163,7 +133,6 @@ type SelectWallet struct {
 	AddressIndex int    `json:"addressIndex"`
 }
 
-// ----------getFeeRate----------
 type EstimationSpeeds struct {
 	VerySlow int
 	Slow     int
@@ -172,19 +141,16 @@ type EstimationSpeeds struct {
 	VeryFast int
 }
 
-// ----------sendTransaction----------
 type Tx struct {
 	Transaction   string `json:"transaction"`
 	AllowHighFees bool   `json:"allowHighFees"`
 }
 
-// ----------getAdresses----------
 type DisplayWallet struct {
 	Chain    string          `json:"chain"`
 	Adresses []store.Address `json:"addresses"`
 }
 
-// ----------getAllUserAssets----------
 type WalletExtended struct {
 	CuurencyID  int         `bson:"chain"`       //cuurencyID
 	WalletIndex int         `bson:"walletIndex"` //walletIndex
@@ -886,12 +852,6 @@ func (restClient *RestClient) getBlock() gin.HandlerFunc {
 	}
 }
 
-/*
-var getMarkets = func(c *gin.Context) {
-
-}
-*/
-
 func (restClient *RestClient) getTickets() gin.HandlerFunc { // shapeshift
 	return func(c *gin.Context) {
 		pair := c.Param("pair")
@@ -927,38 +887,6 @@ func (restClient *RestClient) getExchangePrice() gin.HandlerFunc {
 	}
 }
 
-// var getAssetsInfo = func(c *gin.Context) { // recieve rgb(255, 0, 0)
-// 	token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-// 	dv := getaddresses(c, token)
-// 	assets := map[int]int{} // name of wallet to total ballance
-// 	excPrice := map[string]float64{}
-// 	for name, as := range dv {
-// 		switch as.Chain {
-// 		case currencies.String(currencies.Bitcoin):
-// 			for _, addr := range as.Adresses {
-// 				assets[name] += getaddressbalance(c, addr.Address, 1)
-// 			}
-// 		case currencies.String(currencies.Ether):
-// 			for _, addr := range as.Adresses {
-// 				assets[name] += getaddressbalance(c, addr.Address, 2)
-// 			}
-// 		default:
-// 			fmt.Println(strings.ToUpper(as.Chain))
-// 		}
-// 	}
-// 	excPrice["BTC"] = getexchangeprice(c, "BTC", "USD")
-// 	excPrice["ETH"] = getexchangeprice(c, "ETH", "USD")
-//
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"wallets":       dv,
-// 		"ballances":     assets,
-// 		"exchangePrice": excPrice,
-// 	})
-// }
-
-// var getActivities = func(c *gin.Context) { // следующий спринт
-//
-// }
 func (restClient *RestClient) getTransactionInfo() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		txid := c.Param("txid")
@@ -972,48 +900,5 @@ func (restClient *RestClient) getTransactionInfo() gin.HandlerFunc {
 		c.Writer.WriteHeader(http.StatusOK)
 		c.Writer.Header().Set("Content-Type", "application/json")
 		c.Writer.Write(data)
-	}
-}
-
-// var deleteWallet = func(c *gin.Context) {
-// 	token := strings.Split(c.GetHeader("Authorization"), " ")[1]
-// 	userID := c.Param("userid")
-//
-// 	var sw selectWallet
-// 	decodeBody(c, &sw)
-//
-// 	sel := bson.M{"wallets.name": sw.Name, "userID": userID, "devices.JWT": token}
-// 	update := bson.M{"$push": bson.M{"wallets": wallet}}
-//
-// }
-
-func (restClient *RestClient) sendTransactionOld() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		curID := c.Param("curid")
-		i, err := strconv.Atoi(curID)
-		if err != nil {
-			i = 1337 // err
-		}
-
-		switch i {
-		case currencies.Bitcoin:
-			var tx Tx
-			decodeBody(c, &tx)
-			tr := true
-			txid, err := restClient.rpcClient.SendCyberRawTransaction(tx.Transaction, tr)
-			responseErr(c, err, http.StatusInternalServerError) // 500
-
-			c.JSON(http.StatusOK, gin.H{
-				"txid": txid,
-			})
-
-		case currencies.Ether:
-			//not implemented yet
-		default:
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    http.StatusBadRequest,
-				"message": http.StatusText(http.StatusBadRequest),
-			})
-		}
 	}
 }
