@@ -74,6 +74,16 @@ func SetSocketIOHandlers(r *gin.RouterGroup, btcCh chan btc.BtcTransactionWithUs
 		return resp
 	})
 
+	// server.On("kek", func(c *gosocketio.Channel, req EventGetExchangeReq) string {
+	// 	for k, v := range users.users {
+	// 		fmt.Print("key-", k)
+	// 		for str, conn := range v.conns {
+	// 			fmt.Println(str, " ", conn)
+	// 		}
+	// 	}
+	// 	return "kek"
+	// })
+
 	server.On("/getExchangeReq", func(c *gosocketio.Channel, req EventGetExchangeReq) EventGetExchangeResp {
 		log.Printf("[DEBUG] /getExchange: user=%s, req=%+v\n", c.Id(), req)
 		resp := processGetExchangeEvent(req)
@@ -97,4 +107,5 @@ func SetSocketIOHandlers(r *gin.RouterGroup, btcCh chan btc.BtcTransactionWithUs
 		log.Panic(http.ListenAndServe("0.0.0.0:7780", serveMux))
 	}()
 	return nil, nil
+
 }

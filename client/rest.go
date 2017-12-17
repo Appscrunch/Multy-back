@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/Appscrunch/Multy-back/currencies"
 	"github.com/Appscrunch/Multy-back/store"
 	"github.com/blockcypher/gobcy"
@@ -53,8 +54,16 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		btcConfTestnet: btcConfTest,
 		btcConfMainnet: btcConfMain,
 
-		apiBTCTest: gobcy.API{btcConfTest.Token, btcConfTest.Coin, btcConfTest.Chain},
-		apiBTCMain: gobcy.API{btcConfMain.Token, btcConfMain.Coin, btcConfMain.Chain},
+		apiBTCTest: gobcy.API{
+			Token: btcConfTest.Token,
+			Coin:  btcConfTest.Coin,
+			Chain: btcConfTest.Chain,
+		},
+		apiBTCMain: gobcy.API{
+			Token: btcConfMain.Token,
+			Coin:  btcConfMain.Coin,
+			Chain: btcConfMain.Chain,
+		},
 	}
 
 	initMiddlewareJWT(restClient)
@@ -451,9 +460,27 @@ type SpendableOutputs struct {
 
 func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
+		connCfg := &rpcclient.ConnConfig{
+			Host:         "192.168.0.121:18334",
+			User:         "multy",
+			Pass:         "multy",
+			HTTPPostMode: true,  // Bitcoin core only supports HTTP POST mode
+			DisableTLS:   false, // Bitcoin core does not provide TLS by default
+			Certificates: []byte(btc.Cert),
+		}
+		// Notice the notification parameter is nil since notifications are
+		// not supported in HTTP POST mode.
+		client, err := rpcclient.New(connCfg, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer client.Shutdown()
+
 		var rawTx RawTx
+
 		decodeBody(c, &rawTx)
-		txid, err := restClient.rpcClient.SendCyberRawTransaction(rawTx.Transaction, true)
+		txid, err := client.SendCyberRawTransaction(rawTx.Transaction, true)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
@@ -602,7 +629,7 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 					if err != nil {
 						log.Printf("[ERR] getWalletVerbose: restClient.apiBTCTest.GetAddrFull : %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
 						code = http.StatusInternalServerError
-						message = http.StatusText(http.StatusInternalServerError)
+						message = http.StatusText(http.StatusInternalServerError) // fix naming
 						continue
 					}
 
@@ -781,8 +808,8 @@ func (restClient *RestClient) restoreAllWallets() gin.HandlerFunc {
 				addrInfo, err := restClient.apiBTCTest.GetAddrFull(address.Address, params)
 				if err != nil {
 					log.Printf("[ERR] restoreAllWallets: restClient.apiBTCTest.GetAddrFull : %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
-					code = http.StatusInternalServerError
-					message = http.StatusText(http.StatusInternalServerError)
+					code = http.StatusConflict
+					message = "server error or no outputs on some address" // fix status code
 					continue
 				}
 

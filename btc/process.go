@@ -37,6 +37,7 @@ type rpcClientWrapper struct {
 }
 
 var usersData *mgo.Collection
+var mempoolRates *mgo.Collection
 
 var Cert = `-----BEGIN CERTIFICATE-----
 MIICPDCCAZ2gAwIBAgIQf8XOycg2EQ8wHpXsZJSy7jAKBggqhkjOPQQDBDAjMREw
@@ -59,26 +60,39 @@ var connCfg = &rpcclient.ConnConfig{
 	Pass:         "multy",
 	Endpoint:     "ws",
 	Certificates: []byte(Cert),
+	HTTPPostMode: false, // Bitcoin core only supports HTTP POST mode
+	DisableTLS:   false, // Bitcoin core does not provide TLS by default
 }
 
 func RunProcess() error {
 	fmt.Println("[DEBUG] RunProcess()")
 
 	db, err := mgo.Dial("192.168.0.121:27017")
-	fmt.Println(err)
+	if err != nil {
+		log.Printf("[ERR] RunProcess: Cand connect to DB: %s\n", err.Error())
+		return err
+	}
 
-	usersData = db.DB("userDB").C("userCollection")
+	usersData = db.DB("userDB").C("userCollection") // all db tables
+	mempoolRates = db.DB("BTCMempool").C("Rates")
+	// Drop collection on every new start of application
+	err = mempoolRates.DropCollection()
+	if err != nil {
+		log.Printf("[ERR] RunProcess:mempoolRates.DropCollection:%s \n", err.Error())
+	}
 
 	ntfnHandlers := rpcclient.NotificationHandlers{
 		OnBlockConnected: func(hash *chainhash.Hash, height int32, t time.Time) {
 			log.Printf("[DEBUG] OnBlockConnected: %v (%d) %v", hash, height, t)
-			go getAndParseNewBlock(hash)
+			go parseNewBlock(hash)
 		},
 		OnTxAcceptedVerbose: func(txDetails *btcjson.TxRawResult) {
 			log.Printf("[DEBUG] OnTxAcceptedVerbose: new transaction id = %v", txDetails.Txid)
 			// notify on new in
 			// notify on new out
 			go parseMempoolTransaction(txDetails)
+			//tx speed
+			go parseRawTransaction(txDetails)
 		},
 	}
 
@@ -99,6 +113,9 @@ func RunProcess() error {
 		return err
 	}
 	log.Println("NotifyNewTransactions: Registration Complete")
+
+	// get all mempool and append to db
+	go getAllMempool()
 
 	rpcClient.WaitForShutdown()
 	return nil
