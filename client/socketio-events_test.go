@@ -15,5 +15,5 @@ func Test_processGetExchangeEvent(t *testing.T) {
 		t.Fatal(resp.Error)
 	}
 	log.Printf("%+v", resp)
-	//	t.Fatal("")
+	//t.Fatal("")
 }

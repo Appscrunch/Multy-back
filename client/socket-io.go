@@ -5,7 +5,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/gin-gonic/gin"
+	socketio "github.com/googollee/go-socket.io"
 	"github.com/graarh/golang-socketio/transport"
 
 	"github.com/graarh/golang-socketio"
@@ -42,44 +44,41 @@ func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
 	}, nil
 }
 
-func SetSocketIOHandlers(r *gin.RouterGroup) (*SocketIOConnectedPool, error) {
+func SetSocketIOHandlers(r *gin.RouterGroup, btcCh chan btc.BtcTransactionWithUserID, users *SocketIOConnectedPool) (*socketio.Server, error) {
 	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
 
-	connectedPool, err := InitConnectedPool(server)
-	if err != nil {
-		return nil, fmt.Errorf("connection pool initialization: %s", err.Error())
-	}
-	chart, err := initExchangeChart()
-	if err != nil {
-		return nil, fmt.Errorf("exchange chart initialization: %s", err.Error())
-	}
-
-	connectedPool.chart = chart
+	users = InitConnectedPool(btcCh)
 
 	server.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
-		fmt.Println("[DEBUG] connected:", c.Id())
-		c.Emit("exchangeAll", connectedPool.chart.getAll())
-
-		user, err := getHeaderDataSocketIO(c.RequestHeader())
+		fmt.Println("connected:", c.Id())
+		userInfo, err := getHeaderDataSocketIO(c.RequestHeader())
 		if err != nil {
 			log.Printf("[ERR] get socketio headers: %s\n", err.Error())
 			return
 		}
+		//userInfo := &SocketIOUser{"1", "2", "4", nil}
+
 		connectionID := c.Id()
-		user.chart = connectedPool.chart
+		userID := userInfo.userID
 
-		newConn := newSocketIOUser(connectionID, user, c)
-		connectedPool.addUserConn(user.userID, newConn)
-
+		newConn := newSocketIOUser(connectionID, userInfo, btcCh, c)
+		users.AddUserConn(userID, newConn)
 		log.Println("[DEBUG] OnConnection done")
 	})
 
-	/*server.On("getExchangeReq", func(c *gosocketio.Channel, req EventGetExchangeReq) EventGetExchangeResp {
+	server.On("getExchangeReq", func(c *gosocketio.Channel, req EventGetExchangeReq) EventGetExchangeResp {
 		log.Printf("[DEBUG] getExchange: user=%s, req=%+v\n", c.Id(), req)
 		resp := processGetExchangeEvent(req)
 		log.Printf("[DEBUG] getExchange: user=%s, resp=%+v\n", c.Id(), resp)
 		return resp
-	})*/
+	})
+
+	server.On("/getExchangeReq", func(c *gosocketio.Channel, req EventGetExchangeReq) EventGetExchangeResp {
+		log.Printf("[DEBUG] /getExchange: user=%s, req=%+v\n", c.Id(), req)
+		resp := processGetExchangeEvent(req)
+		log.Printf("[DEBUG] /getExchange: user=%s, resp=%+v\n", c.Id(), resp)
+		return resp
+	})
 
 	server.On(gosocketio.OnError, func(c *gosocketio.Channel) {
 		log.Println("Error occurs")
@@ -96,5 +95,5 @@ func SetSocketIOHandlers(r *gin.RouterGroup) (*SocketIOConnectedPool, error) {
 	go func() {
 		log.Panic(http.ListenAndServe("0.0.0.0:7780", serveMux))
 	}()
-	return connectedPool, nil
+	return nil, nil
 }

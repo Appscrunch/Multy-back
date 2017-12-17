@@ -7,7 +7,7 @@ import (
 	mylty "github.com/Appscrunch/Multy-back"
 )
 
-const defaultConfigFile = "config.json"
+const defaultConfigFile = "config.yml"
 
 var (
 	branch    string
@@ -20,7 +20,6 @@ func main() {
 		"\tbranch: \t%s\n"+
 		"\tcommit: \t%s\n"+
 		"\tbuild time: \t%s\n", branch, commit, buildtime)
-
 	log.Println(serviceInfo)
 
 	conf, err := mylty.GetConfig(defaultConfigFile)
