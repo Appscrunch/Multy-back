@@ -1,6 +1,7 @@
 package btc
 
 import (
+
 	"log"
 
 	"gopkg.in/mgo.v2/bson"
@@ -100,4 +101,3 @@ func parseNewBlock(hash *chainhash.Hash) {
 		}
 
 	}
-}

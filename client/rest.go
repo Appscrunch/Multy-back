@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+
 	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/Appscrunch/Multy-back/currencies"
 	"github.com/Appscrunch/Multy-back/store"
@@ -117,7 +118,6 @@ func initMiddlewareJWT(restClient *RestClient) {
 	}
 }
 
-// ----------createWallet----------
 type WalletParams struct {
 	CurrencyID   int    `json:"currencyID"`
 	Address      string `json:"address"`
@@ -126,7 +126,6 @@ type WalletParams struct {
 	WalletName   string `json:"walletName"`
 }
 
-// ----------addAddress------------
 type SelectWallet struct {
 	WalletIndex  int    `json:"walletIndex"`
 	Address      string `json:"address"`
@@ -776,6 +775,7 @@ func (restClient *RestClient) restoreAllWallets() gin.HandlerFunc {
 					log.Printf("[ERR] restoreAllWallets: restClient.apiBTCTest.GetAddrFull : %s \t[addr=%s]\n", err.Error(), c.Request.RemoteAddr)
 					code = http.StatusConflict
 					message = "server error or no outputs on some address" // fix status code
+
 					continue
 				}
 

@@ -59,7 +59,6 @@ func (sConnPool *SocketIOConnectedPool) listenBTC() {
 				}
 				conn.Emit("newTransaction", string(msgRaw))
 			}
-
 		}
 	}
 }
@@ -74,6 +73,7 @@ func (sConnPool *SocketIOConnectedPool) AddUserConn(userID string, userObj *Sock
 
 func (sConnPool *SocketIOConnectedPool) RemoveUserConn(userID string) {
 	log.Println("[DEBUG] RemoveUserConn: ", userID)
+
 	sConnPool.m.Lock()
 	defer sConnPool.m.Unlock()
 
