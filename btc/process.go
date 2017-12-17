@@ -78,7 +78,7 @@ func RunProcess() error {
 			log.Printf("[DEBUG] OnTxAcceptedVerbose: new transaction id = %v", txDetails.Txid)
 			// notify on new in
 			// notify on new out
-			parseMempoolTransaction(txDetails)
+			go parseMempoolTransaction(txDetails)
 		},
 	}
 

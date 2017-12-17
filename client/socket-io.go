@@ -16,7 +16,8 @@ import (
 const (
 	socketIOOutMsg = "outcoming"
 	socketIOInMsg  = "incoming"
-
+)
+const (
 	deviceTypeMac     = "mac"
 	deviceTypeAndroid = "android"
 )
