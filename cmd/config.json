@@ -1,0 +1,22 @@
+{
+    "Name": "my-test-back",
+    "Database": {
+        "Address": "192.168.0.121:27017",
+        "TableUsers": "userCollection",
+        "DBUsers": "userDB",
+        "DBBTCMempool": "BTCMempool",
+        "TableRates": "Rates"
+    },
+    "RestAddress": "localhost:7778",
+    "SocketioAddr": "localhost:7780",
+    "BTCAPITest": {
+        "Token": "6b4e9ead6afe4803bd1e2d22b24b52ad",
+        "Coin": "btc",
+        "Chain": "test3"
+    },
+    "BTCAPIMain": {
+        "Token": "6b4e9ead6afe4803bd1e2d22b24b52ad",
+        "Coin": "btc",
+        "Chain": "main"
+    }
+}
