@@ -10,8 +10,8 @@ import (
 	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/Appscrunch/Multy-back/currencies"
 	"github.com/Appscrunch/Multy-back/store"
+	"github.com/KristinaEtc/slf"
 	"github.com/blockcypher/gobcy"
-	"github.com/ventu-io/slf"
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
@@ -427,6 +427,8 @@ type SpendableOutputs struct {
 
 func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
+		restClient.log.Infof("btc.Cert=%s\n", btc.Cert)
 
 		connCfg := &rpcclient.ConnConfig{
 			Host:         "localhost:18334",
