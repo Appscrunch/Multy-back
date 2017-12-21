@@ -118,7 +118,7 @@ func (eChart *exchangeChart) update() {
 }
 
 func (eChart *exchangeChart) getUpdatedRated() (*EventExchangeChart, error) {
-	log.Println("getUpdatedRated")
+	// log.Println("getUpdatedRated")
 
 	reqURI := fmt.Sprintf("https://min-api.cryptocompare.com/data/price?fsym=%s&tsyms=%s", "BTC", "EUR,USD,ETH")
 	_, err := url.ParseRequestURI(reqURI)
@@ -127,7 +127,7 @@ func (eChart *exchangeChart) getUpdatedRated() (*EventExchangeChart, error) {
 		return nil, err
 	}
 
-	log.Printf("[DEBUG] processGetExchangeEvent: reqURI=%s", reqURI)
+	// log.Printf("[DEBUG] processGetExchangeEvent: reqURI=%s", reqURI)
 	resp, err := http.Get(reqURI)
 	if err != nil {
 		log.Printf("[ERR] processGetExchangeEvent: get exchange: [%s], err=%s\n", reqURI, err.Error())
@@ -145,7 +145,7 @@ func (eChart *exchangeChart) getUpdatedRated() (*EventExchangeChart, error) {
 		return nil, err
 	}
 
-	log.Printf("[DEBUG] processGetExchangeEvent: resp=[%s]\n", string(bodyBytes))
+	// log.Printf("[DEBUG] processGetExchangeEvent: resp=[%s]\n", string(bodyBytes))
 
 	var ratesRaw map[string]float64
 	if err := json.Unmarshal(bodyBytes, &ratesRaw); err != nil {
@@ -162,7 +162,7 @@ func (eChart *exchangeChart) getUpdatedRated() (*EventExchangeChart, error) {
 	rates.ETHtoEUR = rates.ETHtoBTC / ratesRaw["EUR"]
 
 	rates.BTCtoUSD = ratesRaw["USD"]
-	log.Printf("[DEBUG] rates=[%+v]\n", rates)
+	// log.Printf("[DEBUG] rates=[%+v]\n", rates)
 
 	return rates, nil
 }
