@@ -1,7 +1,7 @@
 package client
 
 import (
-	"io/ioutil"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,10 +15,13 @@ import (
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
+	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 const (
+	msgErrWalletIndex           = "already existing wallet index"
+	msgErrAddressIndex          = "already existing address index"
 	msgErrHeaderError           = "wrong authorization headers"
 	msgErrRequestBodyError      = "missing request body params"
 	msgErrUserNotFound          = "user not found in db"
@@ -84,7 +87,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		v1.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice())
 		v1.POST("/transaction/send/:currencyid", restClient.sendRawTransaction())
 		v1.GET("/address/balance/:currencyid/:address", restClient.getAdressBalance())
-		v1.GET("/wallet/:walletindex/verbose/", restClient.getWalletVerbose())
+		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose())
 		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
 		v1.GET("/wallets/restore", restClient.restoreAllWallets())
 	}
@@ -190,9 +193,20 @@ func (restClient *RestClient) addWallet() gin.HandlerFunc {
 			restClient.log.Errorf("addWallet: decodeBody: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
 		}
 
+		// we can't append wallet to user with already existed wallet id
+		sel := bson.M{"wallets.walletIndex": wp.WalletIndex, "devices.JWT": token}
+		err = restClient.userStore.FindUser(sel, nil)
+		if err != mgo.ErrNotFound {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrWalletIndex,
+			})
+			return
+		}
+
 		wallet := createWallet(wp.CurrencyID, wp.Address, wp.AddressIndex, wp.WalletIndex, wp.WalletName)
 
-		sel := bson.M{"devices.JWT": token}
+		sel = bson.M{"devices.JWT": token}
 		update := bson.M{"$push": bson.M{"wallets": wallet}}
 
 		if err := restClient.userStore.Update(sel, update); err != nil {
@@ -232,6 +246,18 @@ func (restClient *RestClient) addAddress() gin.HandlerFunc {
 			restClient.log.Errorf("addAddress: decodeBody: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
 		}
 
+		// we can't append to wallet addresses with same indexes
+		sel := bson.M{"devices.JWT": token, "wallets.walletIndex": sw.WalletIndex, "wallets.addresses.addressIndex": sw.AddressIndex}
+		err = restClient.userStore.FindUser(sel, nil)
+		fmt.Println("[KEK] ", err)
+		if err != mgo.ErrNotFound {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrAddressIndex,
+			})
+			return
+		}
+
 		addr := store.Address{
 			Address:      sw.Address,
 			AddressIndex: sw.AddressIndex,
@@ -242,7 +268,7 @@ func (restClient *RestClient) addAddress() gin.HandlerFunc {
 			message string
 		)
 
-		sel := bson.M{"wallets.walletIndex": sw.WalletIndex, "devices.JWT": token}
+		sel = bson.M{"wallets.walletIndex": sw.WalletIndex, "devices.JWT": token}
 		update := bson.M{"$push": bson.M{"wallets.$.addresses": addr}}
 
 		if err = restClient.userStore.Update(sel, update); err != nil {
@@ -513,7 +539,6 @@ func (restClient *RestClient) getAdressBalance() gin.HandlerFunc { //recieve rgb
 				code = http.StatusInternalServerError
 				message = http.StatusText(http.StatusInternalServerError)
 				ballance = 0
-				return
 			} else {
 				code = http.StatusOK
 				message = http.StatusText(http.StatusOK)
@@ -542,17 +567,20 @@ func (restClient *RestClient) blank() gin.HandlerFunc {
 
 func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var av []AddressVerbose
 		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
 		if len(authHeader) < 2 {
 			restClient.log.Errorf("getWalletVerbose: wrong Authorization header len\t[addr=%s]", c.Request.RemoteAddr)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
 				"message": msgErrHeaderError,
-				"wallet":  nil,
+				"wallet":  av,
 			})
 			return
 		}
 		token := authHeader[1]
+
+		restClient.log.Debugf("[ALEX] - ", c.Request.Header)
 
 		walletIndex, err := strconv.Atoi(c.Param("walletindex"))
 		restClient.log.Debugf("getWalletVerbose [%d] \t[walletindexr=%s]", walletIndex, c.Request.RemoteAddr)
@@ -561,7 +589,7 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
 				"message": msgErrDecodeWalletIndexErr,
-				"wallet":  nil,
+				"wallet":  av,
 			})
 			return
 		}
@@ -583,7 +611,6 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 			message = http.StatusText(http.StatusOK)
 		}
 
-		var av []AddressVerbose
 		var spOuts []SpendableOutputs
 
 		params := map[string]string{
@@ -645,13 +672,14 @@ type AddressVerbose struct {
 
 func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var wv []WalletVerbose
 		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
 		if len(authHeader) < 2 {
 			restClient.log.Errorf("getAllWalletsVerbose: wrong Authorization header len\t[addr=%s]", c.Request.RemoteAddr)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
 				"message": msgErrHeaderError,
-				"wallets": nil,
+				"wallets": wv,
 			})
 			return
 		}
@@ -673,7 +701,6 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 			message = http.StatusText(http.StatusOK)
 		}
 
-		var wv []WalletVerbose
 		var av []AddressVerbose
 		var spOuts []SpendableOutputs
 		params := map[string]string{
@@ -736,13 +763,14 @@ type WalletVerbose struct {
 
 func (restClient *RestClient) restoreAllWallets() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var rw []RestoreWallet
 		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
 		if len(authHeader) < 2 {
 			restClient.log.Errorf("restoreAllWallets: wrong Authorization header len\t[addr=%s]", c.Request.RemoteAddr)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
 				"message": msgErrHeaderError,
-				"wallets": nil,
+				"wallets": rw,
 			})
 			return
 		}
@@ -764,7 +792,6 @@ func (restClient *RestClient) restoreAllWallets() gin.HandlerFunc {
 			message = http.StatusText(http.StatusOK)
 		}
 
-		var rw []RestoreWallet
 		var av []AddressVerbose
 		var spOuts []SpendableOutputs
 		params := map[string]string{
@@ -833,48 +860,6 @@ type RestoreWallet struct {
 	VerboseAddress []AddressVerbose `json:"addresses"`
 }
 
-func (restClient *RestClient) getBlock() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		height := c.Param("height")
-
-		url := "https://bitaps.com/api/block/" + height
-
-		if height == "last" {
-			url = "https://bitaps.com/api/block/latest"
-		}
-
-		response, err := http.Get(url)
-		responseErr(c, err, http.StatusServiceUnavailable) // 503
-
-		data, err := ioutil.ReadAll(response.Body)
-		responseErr(c, err, http.StatusInternalServerError) // 500
-
-		c.Writer.WriteHeader(http.StatusOK)
-		c.Writer.Header().Set("Content-Type", "application/json")
-		c.Writer.Write(data)
-	}
-}
-
-func (restClient *RestClient) getTickets() gin.HandlerFunc { // shapeshift
-	return func(c *gin.Context) {
-		pair := c.Param("pair")
-		url := "https://shapeshift.io/marketinfo/" + pair
-
-		var to map[string]interface{}
-
-		makeRequest(c, url, &to)
-		// fv := v.Convert(floatType).Float()
-
-		c.JSON(http.StatusOK, gin.H{
-			"pair":     to["pair"],
-			"rate":     to["rate"],
-			"limit":    to["limit"],
-			"minimum":  to["minimum"],
-			"minerFee": to["minerFee"],
-		})
-	}
-}
-
 func (restClient *RestClient) getExchangePrice() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		from := strings.ToUpper(c.Param("from"))
@@ -887,21 +872,5 @@ func (restClient *RestClient) getExchangePrice() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			to: er[to],
 		})
-	}
-}
-
-func (restClient *RestClient) getTransactionInfo() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		txid := c.Param("txid")
-		url := "https://bitaps.com/api/transaction/" + txid
-		response, err := http.Get(url)
-		responseErr(c, err, http.StatusServiceUnavailable) // 503
-
-		data, err := ioutil.ReadAll(response.Body)
-		responseErr(c, err, http.StatusInternalServerError) // 500
-
-		c.Writer.WriteHeader(http.StatusOK)
-		c.Writer.Header().Set("Content-Type", "application/json")
-		c.Writer.Write(data)
 	}
 }
