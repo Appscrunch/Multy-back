@@ -32,11 +32,28 @@ type rpcClientWrapper struct {
 	*rpcclient.Client
 }
 
-var usersData *mgo.Collection
+var (
+	usersData    *mgo.Collection
+	mempoolRates *mgo.Collection
+	txsData      *mgo.Collection
+)
 
-var mempoolRates *mgo.Collection
-
-var Cert = `testcert`
+var Cert = `-----BEGIN CERTIFICATE-----
+MIIChjCCAeigAwIBAgIRAIk9dSekS8kr907yIOLdYHkwCgYIKoZIzj0EAwQwOzER
+MA8GA1UEChMIZ2VuY2VydHMxJjAkBgNVBAMTHVVidW50dS0xNzEwLWFydGZ1bC02
+NC1taW5pbWFsMB4XDTE3MTIwNzEwMTAyNloXDTI3MTIwNjEwMTAyNlowOzERMA8G
+A1UEChMIZ2VuY2VydHMxJjAkBgNVBAMTHVVidW50dS0xNzEwLWFydGZ1bC02NC1t
+aW5pbWFsMIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQAxxPJzJr2GO/KHwKwSvpS
+365ScP47ChcunVxRqikDv55tiYgsJBj+OAd9CJPrTlTPRW1OPkAf6hg9Pv4LPYBg
+aBoAhUQkE7YiPjbJkZhg98DL0RaTlebcXWHE0UQ6SNXE8Or3MZNZljL/HTPrPvsl
+ezVgytE1aJsK3fmZpFp6Tolj3/GjgYkwgYYwDgYDVR0PAQH/BAQDAgKkMA8GA1Ud
+EwEB/wQFMAMBAf8wYwYDVR0RBFwwWoIdVWJ1bnR1LTE3MTAtYXJ0ZnVsLTY0LW1p
+bmltYWyCCWxvY2FsaG9zdIcEfwAAAYcQAAAAAAAAAAAAAAAAAAAAAYcEWMYvcIcQ
+/oAAAAAAAAAW2un//u9nhTAKBggqhkjOPQQDBAOBiwAwgYcCQgDoEBs8oe8QvOZP
+RZo+Hck5JZZhBtHOWZRsgi/GsWOuLvLJiJxnxWDUQQkuJewlWugMDpH0jTqf9Sm/
+Tc9SOTFf7QJBbTyfcozACphA7sn1LrIH7Savrw5CnLKgCmfDdCgmnyM3GbK+soId
+wcNvBlvz4dHHRbDGr5U019eArX1HF6JvY4k=
+-----END CERTIFICATE-----`
 
 var connCfg = &rpcclient.ConnConfig{
 	Host:         "localhost:18334",
@@ -62,6 +79,7 @@ func RunProcess() error {
 
 	usersData = db.DB("userDB").C("userCollection") // all db tables
 	mempoolRates = db.DB("BTCMempool").C("Rates")
+	txsData = db.DB("Tx").C("BTC")
 
 	// Drop collection on every new start of application
 	err = mempoolRates.DropCollection()
@@ -72,8 +90,9 @@ func RunProcess() error {
 	ntfnHandlers := rpcclient.NotificationHandlers{
 		OnBlockConnected: func(hash *chainhash.Hash, height int32, t time.Time) {
 			log.Debugf("OnBlockConnected: %v (%d) %v", hash, height, t)
-			go parseNewBlock(hash)
-
+			go notifyNewBlockTx(hash)
+			go blockTransactions(hash)
+			go blockConfirmations(hash)
 		},
 		OnTxAcceptedVerbose: func(txDetails *btcjson.TxRawResult) {
 			log.Debugf("OnTxAcceptedVerbose: new transaction id = %v", txDetails.Txid)
@@ -82,7 +101,10 @@ func RunProcess() error {
 			go parseMempoolTransaction(txDetails)
 			//add every new tx from mempool to db
 			//feeRate
-			go newTxToDB(txDetails.Hash)
+			go newTxToDB(txDetails)
+
+			go mempoolTransaction(txDetails)
+
 		},
 	}
 
