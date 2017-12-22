@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"strconv"
 	"sync"
 	"time"
 
@@ -28,7 +27,7 @@ const (
 )
 
 type Rates struct {
-	BTCtoUSDDay    map[string]string
+	BTCtoUSDDay    []RatesFromApi
 	exchangeSingle *EventExchangeChart
 
 	m *sync.Mutex
@@ -57,7 +56,7 @@ func initExchangeChart() (*exchangeChart, error) {
 	chart := &exchangeChart{
 		rates: &Rates{
 			exchangeSingle: &EventExchangeChart{},
-			BTCtoUSDDay:    make(map[string]string),
+			BTCtoUSDDay:    make([]RatesFromApi, 0),
 			m:              &sync.Mutex{},
 		},
 		log:      slf.WithContext("chart"),
@@ -94,10 +93,12 @@ func (eChart *exchangeChart) updateAll() {
 	eChart.rates.m.Lock()
 	defer eChart.rates.m.Unlock()
 
-	min, max := eChart.getExtremRates(eChart.rates.BTCtoUSDDay)
-	delete(eChart.rates.BTCtoUSDDay, min)
-	eChart.rates.BTCtoUSDDay[max] = strconv.FormatFloat(eChart.rates.exchangeSingle.USDtoBTC, 'f', 2, 64)
-
+	log.Println("not implemented for json array")
+	/*
+		min, max := eChart.getExtremRates(eChart.rates.BTCtoUSDDay)
+		delete(eChart.rates.BTCtoUSDDay, min)
+		eChart.rates.BTCtoUSDDay[max] = strconv.FormatFloat(eChart.rates.exchangeSingle.USDtoBTC, 'f', 2, 64)
+	*/
 	return
 }
 
@@ -212,12 +213,13 @@ func (eChart *exchangeChart) saveRates(allRates []RatesFromApi) {
 	eChart.rates.m.Lock()
 	defer eChart.rates.m.Unlock()
 
-	for _, rate := range allRates {
+	/*for _, rate := range allRates {
 		eChart.rates.BTCtoUSDDay[rate.Date] = rate.Price
-	}
+	}*/
+	eChart.rates.BTCtoUSDDay = allRates
 }
 
-func (eChart *exchangeChart) getAll() map[string]string {
+func (eChart *exchangeChart) getAll() []RatesFromApi {
 	eChart.log.Debug("exchange chart: get all exchanges")
 
 	eChart.rates.m.Lock()
