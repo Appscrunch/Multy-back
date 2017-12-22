@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/KristinaEtc/slf"
+	nsq "github.com/bitly/go-nsq"
 	"github.com/btcsuite/btcd/rpcclient"
-	"github.com/nsqio/go-nsq"
 )
 
 const (
@@ -36,8 +36,8 @@ func InitHandlers(certFromConf string) (*rpcclient.Client, error) {
 	}
 	nsqProducer = p
 
-	log.Debugf("Certificate=%s", certFromConf)
-	//Cert = certFromConf
+	Cert = certFromConf
+	connCfg.Certificates = []byte(Cert)
 
 	go RunProcess()
 	return rpcClient, nil

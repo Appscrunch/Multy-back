@@ -41,11 +41,11 @@ var (
 var Cert = `testcert`
 
 var connCfg = &rpcclient.ConnConfig{
-	Host:         "localhost:18334",
-	User:         "multy",
-	Pass:         "multy",
-	Endpoint:     "ws",
-	Certificates: []byte(Cert),
+	Host:     "localhost:18334",
+	User:     "multy",
+	Pass:     "multy",
+	Endpoint: "ws",
+	//Certificates: []byte(Cert), // add it in InitHandlers function
 
 	HTTPPostMode: false, // Bitcoin core only supports HTTP POST mode
 	DisableTLS:   false, // Bitcoin core does not provide TLS by default
