@@ -89,8 +89,8 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		v1.GET("/getexchangeprice/:from/:to", restClient.getExchangePrice())
 		v1.POST("/transaction/send/:currencyid", restClient.sendRawTransaction())
 		v1.GET("/address/balance/:currencyid/:address", restClient.getAdressBalance())
-		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose2())
-		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose2())
+		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose())
+		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
 		v1.GET("/wallets/restore", restClient.restoreAllWallets())
 	}
 	return restClient, nil
@@ -597,7 +597,7 @@ func (restClient *RestClient) blank() gin.HandlerFunc {
 	}
 }
 
-func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
+func (restClient *RestClient) getWalletVerboseOld() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var av []AddressVerbose
 		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
@@ -700,7 +700,7 @@ type AddressVerbose struct {
 	SpendableOuts []SpendableOutputs `json:"spendableoutputs"`
 }
 
-func (restClient *RestClient) getWalletVerbose2() gin.HandlerFunc {
+func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var wv []WalletVerbose
 		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
@@ -817,7 +817,7 @@ type WalletVerbose struct {
 	VerboseAddress []AddressVerbose `json:"addresses"`
 }
 
-func (restClient *RestClient) getAllWalletsVerbose2() gin.HandlerFunc {
+func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var wv []WalletVerbose
 		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
