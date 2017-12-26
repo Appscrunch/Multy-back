@@ -2,6 +2,7 @@ package btc
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Appscrunch/Multy-back/store"
 	"github.com/btcsuite/btcd/btcjson"
@@ -75,7 +76,7 @@ func parseMempoolTransaction(inTx *btcjson.TxRawResult) {
 func mempoolTransaction(inTx *btcjson.TxRawResult) {
 	log.Debugf("[MEMPOOL TX]")
 	var user store.User
-
+	mempoolTimeUnixNano := time.Now().UnixNano() / 1000000
 	// apear as output
 	for _, output := range inTx.Vout {
 		for _, address := range output.ScriptPubKey.Addresses {
@@ -91,7 +92,7 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
 				//appending transaction to user entity
-				newTx := newMultyTX(inTx.Txid, inTx.Hash, output.ScriptPubKey.Hex, address, TxStatusAppearedInMempoolIncoming, int(output.N), -1, output.Value)
+				newTx := newMultyTX(inTx.Txid, inTx.Hash, output.ScriptPubKey.Hex, address, TxStatusAppearedInMempoolIncoming, output.Value, int(output.N), mempoolTimeUnixNano, -1, []StockExchangeRate{})
 				sel = bson.M{"userid": user.UserID}
 				update := bson.M{"$push": bson.M{"transactions": newTx}}
 				err = txsData.Update(sel, update)
@@ -146,7 +147,7 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
 				// User have no transaction like this. Add to DB.
-				newTx := newMultyTX(previousTxVerbose.Txid, previousTxVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, TxStatusAppearedInMempoolOutcoming, int(previousTxVerbose.Vout[input.Vout].N), -1, previousTxVerbose.Vout[input.Vout].Value)
+				newTx := newMultyTX(previousTxVerbose.Txid, previousTxVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, TxStatusAppearedInMempoolOutcoming, previousTxVerbose.Vout[input.Vout].Value, int(previousTxVerbose.Vout[input.Vout].N), mempoolTimeUnixNano, -1, []StockExchangeRate{})
 				sel = bson.M{"userid": user.UserID}
 				update := bson.M{"$push": bson.M{"transactions": newTx}}
 				err = txsData.Update(sel, update)
