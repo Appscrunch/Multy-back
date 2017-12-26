@@ -855,13 +855,8 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 		userTxs := store.TxRecord{}
 		query = bson.M{"userid": user.UserID}
 		if err := restClient.userStore.FindUserTxs(query, &userTxs); err != nil {
-			restClient.log.Errorf("getAllWalletsVerbose: restClient.userStore.FindUser: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
-			c.JSON(http.StatusOK, gin.H{
-				"code":    http.StatusOK,
-				"message": msgErrNoSpendableOutputs,
-				"wallets": wv,
-			})
-			return
+			restClient.log.Errorf("getAllWalletsVerbose: restClient.userStore.FindUser: user %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
+
 		}
 
 		var unspendTxs []store.MultyTX

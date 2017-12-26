@@ -87,19 +87,6 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 			}
 			fmt.Println("[ITS OUR USER] ", user.UserID)
 
-			err = txsData.Find(bson.M{"userid": user.UserID}).One(nil)
-			if err == mgo.ErrNotFound {
-				// Adding user in case of non existence.
-				newRec := newTxRecord(user.UserID, inTx.Txid, inTx.Hash, output.ScriptPubKey.Hex, address, TxStatusAppearedInMempoolIncoming, int(output.N), -1, output.Value)
-				err = txsData.Insert(newRec)
-				if err != nil {
-					log.Errorf("mempoolTransaction :txsData.Insert: %s", err.Error())
-				}
-				continue
-			} else if err != nil && err != mgo.ErrNotFound {
-				log.Errorf("mempoolTransaction: txsData.Find: %s", err.Error())
-			}
-
 			sel := bson.M{"userid": user.UserID, "transactions.txid": inTx.Txid, "transactions.txaddress": address}
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
@@ -114,6 +101,7 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 				continue
 			} else if err != nil && err != mgo.ErrNotFound {
 				log.Errorf("mempoolTransaction: txsData.Find: %s", err.Error())
+				continue
 			}
 
 			sel = bson.M{"userid": user.UserID, "transactions.txid": inTx.Txid, "transactions.txaddress": address}
@@ -153,20 +141,6 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 				log.Debugf("[ITS OUR USER] %s", user.UserID)
 			}
 
-			// Is our user already have transactions.
-			err = txsData.Find(bson.M{"userid": user.UserID}).One(nil)
-			if err == mgo.ErrNotFound {
-				// Users first transaction.
-				newRec := newTxRecord(user.UserID, previousTxVerbose.Txid, previousTxVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, TxStatusAppearedInMempoolOutcoming, int(previousTxVerbose.Vout[input.Vout].N), -1, previousTxVerbose.Vout[input.Vout].Value)
-				err = txsData.Insert(newRec)
-				if err != nil {
-					log.Errorf("txsData.Insert: %s", err.Error())
-				}
-				continue
-			} else if err != nil && err != mgo.ErrNotFound {
-				log.Errorf("txsData.Find: %s", err.Error())
-			}
-
 			// Is our user already have this transactions.
 			sel := bson.M{"userid": user.UserID, "transactions.txid": previousTxVerbose.Txid, "transactions.txaddress": address}
 			err = txsData.Find(sel).One(nil)
@@ -182,6 +156,7 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 				continue
 			} else if err != nil && err != mgo.ErrNotFound {
 				log.Errorf("[ERR]txsData.Find: %s", err.Error())
+				continue
 			}
 
 			// User have this transaction but with another status.

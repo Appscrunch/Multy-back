@@ -160,18 +160,6 @@ func blockTransactions(hash *chainhash.Hash) {
 					fmt.Println("[ITS OUR USER] ", user.UserID)
 				}
 
-				err = txsData.Find(bson.M{"userid": user.UserID}).One(nil)
-				if err == mgo.ErrNotFound {
-					newRec := newTxRecord(user.UserID, blockTxVerbose.Txid, blockTxVerbose.Hash, output.ScriptPubKey.Hex, address, TxStatusAppearedInBlockIncoming, int(output.N), blockHeight, output.Value)
-					err = txsData.Insert(newRec)
-					if err != nil {
-						log.Errorf("[txsData.Insert: %s", err.Error())
-					}
-					continue
-				} else if err != nil && err != mgo.ErrNotFound {
-					log.Errorf("txsData.Find: %s", err.Error())
-				}
-
 				sel := bson.M{"userid": user.UserID, "transactions.txid": blockTxVerbose.Txid, "transactions.txaddress": address}
 				err = txsData.Find(sel).One(nil)
 				if err == mgo.ErrNotFound {
@@ -185,6 +173,7 @@ func blockTransactions(hash *chainhash.Hash) {
 					continue
 				} else if err != nil && err != mgo.ErrNotFound {
 					log.Errorf("[ERR]txsData.Find: %s", err.Error())
+					continue
 				}
 
 				sel = bson.M{"userid": user.UserID, "transactions.txid": blockTxVerbose.Txid, "transactions.txaddress": address}
@@ -225,20 +214,6 @@ func blockTransactions(hash *chainhash.Hash) {
 					log.Debugf("[ITS OUR USER] %s", user.UserID)
 				}
 
-				// Is our user already have transactions.
-				err = txsData.Find(bson.M{"userid": user.UserID}).One(nil)
-				if err == mgo.ErrNotFound {
-					// Users first transaction.
-					newRec := newTxRecord(user.UserID, blockTxVerbose.Txid, blockTxVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, TxStatusAppearedInBlockOutcoming, int(previousTxVerbose.Vout[input.Vout].N), blockHeight, previousTxVerbose.Vout[input.Vout].Value)
-					err = txsData.Insert(newRec)
-					if err != nil {
-						log.Errorf("txsData.Insert: %s", err.Error())
-					}
-					continue
-				} else if err != nil && err != mgo.ErrNotFound {
-					log.Errorf("txsData.Find: %s", err.Error())
-				}
-
 				// Is our user already have this transactions.
 				sel := bson.M{"userid": user.UserID, "transactions.txid": blockTxVerbose.Txid, "transactions.txaddress": address}
 				err = txsData.Find(sel).One(nil)
@@ -254,6 +229,7 @@ func blockTransactions(hash *chainhash.Hash) {
 					continue
 				} else if err != nil && err != mgo.ErrNotFound {
 					log.Errorf("[ERR]txsData.Find: %s", err.Error())
+					continue
 				}
 
 				// User have this transaction but with another status.
@@ -308,6 +284,13 @@ func newTxRecord(userID, txID, txHash, txOutScript, txAddress, txStatus string, 
 				TxStatus:      txStatus,
 			},
 		},
+	}
+}
+
+func newEmptyTx(userID string, txOutID int, txBlockHeight int64, txOutAmount float64) TxRecord {
+	return TxRecord{
+		UserID:       userID,
+		Transactions: []MultyTX{},
 	}
 }
 

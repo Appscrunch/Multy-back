@@ -70,3 +70,10 @@ func createWallet(currencyID int, address string, addressIndex int, walletIndex 
 		},
 	}
 }
+
+func newEmptyTx(userID string) store.TxRecord {
+	return store.TxRecord{
+		UserID:       userID,
+		Transactions: []store.MultyTX{},
+	}
+}
