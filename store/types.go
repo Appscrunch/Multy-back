@@ -68,6 +68,15 @@ type Address struct {
 	AddressIndex int    `json:"addressIndex" bson:"addressIndex"`
 	Address      string `json:"address" bson:"address"`
 }
+type WalletsSelect struct {
+	Wallets []struct {
+		Addresses []struct {
+			AddressIndex int    `bson:"addressIndex"`
+			Address      string `bson:"address"`
+		} `bson:"addresses"`
+		WalletIndex int `bson:"walletIndex"`
+	} `bson:"wallets"`
+}
 
 // the way how user transations store in db
 type MultyTX struct {

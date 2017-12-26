@@ -37,6 +37,8 @@ type UserStore interface {
 	GetAllRates(sortBy string, rates *[]RatesRecord) error //add to rates store
 	FindUserTxs(query bson.M, userTxs *TxRecord) error
 	InsertTxStore(userTxs TxRecord) error
+	FindUserErr(query bson.M) error
+	FindUserAddresses(query bson.M, sel bson.M, ws *WalletsSelect) error
 }
 
 type MongoUserStore struct {
@@ -77,6 +79,13 @@ func (mongo *MongoUserStore) Update(sel, update bson.M) error {
 
 func (mongo *MongoUserStore) FindUser(query bson.M, user *User) error {
 	return mongo.usersData.Find(query).One(user)
+}
+func (mongo *MongoUserStore) FindUserErr(query bson.M) error {
+	return mongo.usersData.Find(query).One(nil)
+}
+
+func (mongo *MongoUserStore) FindUserAddresses(query bson.M, sel bson.M, ws *WalletsSelect) error {
+	return mongo.usersData.Find(query).Select(sel).One(ws)
 }
 
 func (mongo *MongoUserStore) Insert(user User) error {
