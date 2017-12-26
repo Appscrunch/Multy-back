@@ -89,6 +89,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		v1.POST("/transaction/send/:currencyid", restClient.sendRawTransaction())
 		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose())
 		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
+		v1.GET("wallets/:walletindex/transactions/history", restClient.getWalletTransactionsHistory())
 	}
 	return restClient, nil
 }
@@ -439,13 +440,6 @@ func (restClient *RestClient) getSpendableOutputs() gin.HandlerFunc {
 	}
 }
 
-type SpendableOutputs struct {
-	TxID        string `json:"txid"`
-	TxOutID     int    `json:"txoutid"`
-	TxOutAmount int    `json:"txoutamount"`
-	TxOutScript string `json:"txoutscript"`
-}
-
 func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
@@ -487,12 +481,6 @@ func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
 
 type RawTx struct { // remane RawClientTransaction
 	Transaction string `json:"transaction"` //HexTransaction
-}
-
-func (restClient *RestClient) blank() gin.HandlerFunc {
-	return func(c *gin.Context) {
-
-	}
 }
 
 func (restClient *RestClient) getWalletVerboseOld() gin.HandlerFunc {
@@ -591,13 +579,6 @@ func (restClient *RestClient) getWalletVerboseOld() gin.HandlerFunc {
 	}
 }
 
-type AddressVerbose struct {
-	Address       string             `json:"address"`
-	AddressIndex  int                `json:"addressindex"`
-	Amount        int                `json:"amount"`
-	SpendableOuts []SpendableOutputs `json:"spendableoutputs"`
-}
-
 func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var wv []WalletVerbose
@@ -640,10 +621,9 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 				"wallet":  wv,
 			})
 			return
-		} else {
-			code = http.StatusOK
-			message = http.StatusText(http.StatusOK)
 		}
+		code = http.StatusOK
+		message = http.StatusText(http.StatusOK)
 
 		userTxs := store.TxRecord{}
 		query = bson.M{"userid": user.UserID}
@@ -659,7 +639,7 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 
 		var unspendTxs []store.MultyTX
 		for _, tx := range userTxs.Transactions {
-			if tx.TxStatus == "incoming in block" {
+			if tx.TxStatus != "spend in mempool" && tx.TxStatus != "spend in block" {
 				unspendTxs = append(unspendTxs, tx)
 			}
 		}
@@ -677,10 +657,13 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 							balance += int(tx.TxOutAmount * float64(100000000))
 
 							spOuts = append(spOuts, SpendableOutputs{
-								TxID:        tx.TxID,
-								TxOutID:     tx.TxOutID,
-								TxOutAmount: int(tx.TxOutAmount * float64(100000000)),
-								TxOutScript: tx.TxOutScript,
+								TxID:              tx.TxID,
+								TxOutID:           tx.TxOutID,
+								TxOutAmount:       int(tx.TxOutAmount * float64(100000000)),
+								TxOutScript:       tx.TxOutScript,
+								TxStatus:          tx.TxStatus,
+								AddressIndex:      address.AddressIndex,
+								StockExchangeRate: []StockExchangeRate{}, // from db
 							})
 						}
 					}
@@ -696,6 +679,10 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 				}
 				wv = append(wv, WalletVerbose{
 					WalletIndex:    wallet.WalletIndex,
+					CurrencyID:     wallet.CurrencyID,
+					WalletName:     wallet.WalletName,
+					LastActionTime: wallet.LastActionTime,
+					DateOfCreation: wallet.DateOfCreation,
 					VerboseAddress: av,
 				})
 				av = []AddressVerbose{}
@@ -711,8 +698,32 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 }
 
 type WalletVerbose struct {
-	WalletIndex    int              `json:"walletindex"`
+	CurrencyID     int              `json:"currencyID"`
+	WalletIndex    int              `json:"walletIndex"`
+	WalletName     string           `json:"walletName"`
+	LastActionTime int64            `json:"lastActionTime"`
+	DateOfCreation int64            `json:"dateOfCreation"`
 	VerboseAddress []AddressVerbose `json:"addresses"`
+}
+type AddressVerbose struct {
+	Address       string             `json:"address"`
+	AddressIndex  int                `json:"addressindex"`
+	Amount        int                `json:"amount"`
+	SpendableOuts []SpendableOutputs `json:"spendableoutputs"`
+}
+type SpendableOutputs struct {
+	TxID              string              `json:"txid"`
+	TxOutID           int                 `json:"txoutid"`
+	TxOutAmount       int                 `json:"txoutamount"`
+	TxOutScript       string              `json:"txoutscript"`
+	AddressIndex      int                 `json:"addressindex"`
+	TxStatus          string              `json:"txstatus"`
+	StockExchangeRate []StockExchangeRate `json:"stockexchangerate"`
+}
+type StockExchangeRate struct {
+	ExchangeName   string `json:"exchangename"`
+	FiatEquivalent int    `json:"fiatequivalent"`
+	TotalAmount    int    `json:"totalamount"`
 }
 
 func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
@@ -754,12 +765,11 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 		query = bson.M{"userid": user.UserID}
 		if err := restClient.userStore.FindUserTxs(query, &userTxs); err != nil {
 			restClient.log.Errorf("getAllWalletsVerbose: restClient.userStore.FindUser: user %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
-
 		}
 
 		var unspendTxs []store.MultyTX
 		for _, tx := range userTxs.Transactions {
-			if tx.TxStatus == "incoming in block" {
+			if tx.TxStatus != "spend in mempool" && tx.TxStatus != "spend in block" {
 				unspendTxs = append(unspendTxs, tx)
 			}
 		}
@@ -777,10 +787,13 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 						balance += int(tx.TxOutAmount * float64(100000000))
 
 						spOuts = append(spOuts, SpendableOutputs{
-							TxID:        tx.TxID,
-							TxOutID:     tx.TxOutID,
-							TxOutAmount: int(tx.TxOutAmount * float64(100000000)),
-							TxOutScript: tx.TxOutScript,
+							TxID:              tx.TxID,
+							TxOutID:           tx.TxOutID,
+							TxOutAmount:       int(tx.TxOutAmount * float64(100000000)),
+							TxOutScript:       tx.TxOutScript,
+							TxStatus:          tx.TxStatus,
+							AddressIndex:      address.AddressIndex,
+							StockExchangeRate: []StockExchangeRate{}, // from db
 						})
 					}
 				}
@@ -797,6 +810,10 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 
 			wv = append(wv, WalletVerbose{
 				WalletIndex:    wallet.WalletIndex,
+				CurrencyID:     wallet.CurrencyID,
+				WalletName:     wallet.WalletName,
+				LastActionTime: wallet.LastActionTime,
+				DateOfCreation: wallet.DateOfCreation,
 				VerboseAddress: av,
 			})
 			av = []AddressVerbose{}
@@ -809,11 +826,15 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 	}
 }
 
-type RestoreWallet struct {
-	CurrencyID     int              `json:"currencyID"`
-	WalletIndex    int              `json:"walletIndex"`
-	WalletName     string           `json:"walletName"`
-	LastActionTime time.Time        `json:"lastActionTime"`
-	DateOfCreation time.Time        `json:"dateOfCreation"`
-	VerboseAddress []AddressVerbose `json:"addresses"`
+func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+	}
+}
+
+type TransactionVerbose struct {
+	Address       string             `json:"address"`
+	AddressIndex  int                `json:"addressindex"`
+	Amount        int                `json:"amount"`
+	SpendableOuts []SpendableOutputs `json:"spendableoutputs"`
 }
