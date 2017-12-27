@@ -70,13 +70,12 @@ func parseMempoolTransaction(inTx *btcjson.TxRawResult) {
 			}
 		}
 	}
-
 }
 
 func mempoolTransaction(inTx *btcjson.TxRawResult) {
 	log.Debugf("[MEMPOOL TX]")
 	var user store.User
-	mempoolTimeUnixNano := time.Now().UnixNano() / 1000000
+	mempoolTimeUnixNano := time.Now().Unix()
 	// apear as output
 	for _, output := range inTx.Vout {
 		for _, address := range output.ScriptPubKey.Addresses {
@@ -116,7 +115,6 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 			if err != nil {
 				log.Errorf("mempoolTransaction: parseNewBlock:outputsData.Insert case nil: %s", err.Error())
 			}
-
 		}
 	}
 
@@ -175,5 +173,4 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 			}
 		}
 	}
-
 }

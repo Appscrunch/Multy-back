@@ -346,7 +346,6 @@ func (restClient *RestClient) getFeeRate() gin.HandlerFunc {
 			"code":    http.StatusOK,
 			"message": http.StatusText(http.StatusOK),
 		})
-
 	}
 }
 
@@ -435,7 +434,6 @@ func (restClient *RestClient) getSpendableOutputs() gin.HandlerFunc {
 			"message": message,
 			"outs":    spOuts,
 		})
-
 	}
 }
 
@@ -587,7 +585,6 @@ func (restClient *RestClient) getWalletVerboseOld() gin.HandlerFunc {
 			"message": message,
 			"wallet":  av,
 		})
-
 	}
 }
 
@@ -640,10 +637,9 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 				"wallet":  wv,
 			})
 			return
-		} else {
-			code = http.StatusOK
-			message = http.StatusText(http.StatusOK)
 		}
+		code = http.StatusOK
+		message = http.StatusText(http.StatusOK)
 
 		userTxs := store.TxRecord{}
 		query = bson.M{"userid": user.UserID}

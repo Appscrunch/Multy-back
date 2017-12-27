@@ -248,12 +248,9 @@ func blockTransactions(hash *chainhash.Hash) {
 				if err != nil {
 					log.Errorf("parseNewBlock:outputsData.Insert case nil: %s", err.Error())
 				}
-
 			}
-
 		}
 	}
-
 }
 
 type MultyTX struct {
