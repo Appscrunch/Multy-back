@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/KristinaEtc/slf"
 	"github.com/gorilla/websocket"
 )
 
@@ -13,6 +14,8 @@ import (
 type GdaxAPI struct {
 	conn  *websocket.Conn
 	rates *Rates
+
+	log slf.StructuredLogger
 }
 
 //GDAXSocketEvent is a GDAX json parser structure
@@ -21,13 +24,15 @@ type GDAXSocketEvent struct {
 	Price     string `json:"price"`
 }
 
-func (eChart *exchangeChart) initGdaxAPI() (*GdaxAPI, error) {
+func (eChart *exchangeChart) initGdaxAPI(log slf.StructuredLogger) (*GdaxAPI, error) {
 	u := url.URL{Scheme: "wss", Host: "ws-feed.gdax.com", Path: ""}
-	log.Printf("connecting to %s", u.String())
+
+	gdaxAPI := &GdaxAPI{rates: eChart.rates, log: log.WithField("api", "gdax")}
+	gdaxAPI.log.Infof("connecting to %s", u.String())
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		log.Println("dial:", err)
+		gdaxAPI.log.Errorf("dial: %s", err.Error())
 		return nil, err
 	}
 
@@ -36,26 +41,29 @@ func (eChart *exchangeChart) initGdaxAPI() (*GdaxAPI, error) {
 	// done := make(chan struct{})
 	// defer ticker.Stop()
 
+	// defer c.Close()
+	// defer close(done)
+
 	subscribtion := `{"type":"subscribe","channels":[{"name":"ticker_1000","product_ids":["BTC-USD","BTC-EUR","ETH-BTC","ETH-USD","ETH-EUR"]}]}`
 	c.WriteMessage(websocket.TextMessage, []byte(subscribtion))
 
-	// defer c.Close()
-	// defer close(done)
-	return &GdaxAPI{c, eChart.rates}, nil
+	gdaxAPI.conn = c
+
+	return gdaxAPI, nil
 }
 
 func (gdax *GdaxAPI) listen() {
 	for {
 		_, message, err := gdax.conn.ReadMessage()
 		if err != nil {
-			log.Println("read message:", err)
+			gdax.log.Errorf("read message: %s", err.Error())
 			continue
 		}
 
 		rateRaw := &GDAXSocketEvent{}
 		err = json.Unmarshal(message, rateRaw)
 		if err != nil {
-			log.Println("Unmarshal marshal ")
+			gdax.log.Errorf("unmarshal error %s", err.Error())
 			continue
 		}
 		gdax.updateRate(rateRaw)
@@ -65,7 +73,7 @@ func (gdax *GdaxAPI) listen() {
 func (gdax *GdaxAPI) updateRate(rawRate *GDAXSocketEvent) {
 	floatPrice, err := strconv.ParseFloat(rawRate.Price, 32)
 	if err != nil {
-		log.Printf("ParseFloat %s: %s\n", rawRate.Price, err.Error())
+		gdax.log.Errorf("parseFloat %s: %s", rawRate.Price, err.Error())
 		return
 	}
 

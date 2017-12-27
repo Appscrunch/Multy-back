@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -31,7 +30,7 @@ const (
 
 type Rates struct {
 	BTCtoUSDDay    []RatesAPIBitstamp
-	exchangeSingle *ExchangeRates
+	exchangeSingle *store.ExchangeRates
 
 	m *sync.Mutex
 }
@@ -45,21 +44,10 @@ type exchangeChart struct {
 	log slf.StructuredLogger
 }
 
-type ExchangeRates struct {
-	EURtoBTC float64
-	USDtoBTC float64
-	ETHtoBTC float64
-
-	ETHtoUSD float64
-	ETHtoEUR float64
-
-	BTCtoUSD float64
-}
-
 func initExchangeChart(db store.UserStore) (*exchangeChart, error) {
 	chart := &exchangeChart{
 		rates: &Rates{
-			exchangeSingle: &ExchangeRates{},
+			exchangeSingle: &store.ExchangeRates{},
 			BTCtoUSDDay:    make([]RatesAPIBitstamp, 0),
 			m:              &sync.Mutex{},
 		},
@@ -69,7 +57,7 @@ func initExchangeChart(db store.UserStore) (*exchangeChart, error) {
 	chart.log.Debug("initExchangeChart")
 	chart.getAllAPIBitstamp()
 
-	gDaxConn, err := chart.initGdaxAPI()
+	gDaxConn, err := chart.initGdaxAPI(chart.log)
 	if err != nil {
 		return nil, fmt.Errorf("initGdaxAPI: %s", err)
 	}
@@ -84,7 +72,7 @@ func (eChart *exchangeChart) saveToDB() {
 	eChart.rates.m.Lock()
 	eChart.rates.m.Unlock()
 
-	log.Printf("save to db: not implemented: %+v", eChart.rates.exchangeSingle)
+	eChart.db.InsertExchangeRate(*eChart.rates.exchangeSingle)
 }
 
 func (eChart *exchangeChart) run() error {
@@ -157,7 +145,7 @@ func (eChart *exchangeChart) getAllDay() []RatesAPIBitstamp {
 	return eChart.rates.BTCtoUSDDay
 }
 
-func (eChart *exchangeChart) getLast() *ExchangeRates {
+func (eChart *exchangeChart) getLast() *store.ExchangeRates {
 	eChart.rates.m.Lock()
 	defer eChart.rates.m.Unlock()
 	return eChart.rates.exchangeSingle

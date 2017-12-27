@@ -25,10 +25,6 @@ const (
 	topicBTCTransactionUpdate = "btcTransaction"
 
 	topicEthTransactionUpdate = "ethTransaction"
-
-	EUR = "EUR"
-	USD = "USD"
-	ETH = "ETH"
 )
 
 func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
