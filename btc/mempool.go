@@ -70,7 +70,6 @@ func parseMempoolTransaction(inTx *btcjson.TxRawResult) {
 			}
 		}
 	}
-
 }
 
 func mempoolTransaction(inTx *btcjson.TxRawResult) {
@@ -116,7 +115,6 @@ func mempoolTransaction(inTx *btcjson.TxRawResult) {
 			if err != nil {
 				log.Errorf("mempoolTransaction: parseNewBlock:outputsData.Insert case nil: %s", err.Error())
 			}
-
 		}
 	}
 

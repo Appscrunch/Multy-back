@@ -89,7 +89,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		v1.POST("/transaction/send/:currencyid", restClient.sendRawTransaction())
 		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose())
 		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
-		v1.GET("wallets/:walletindex/transactions/history", restClient.getWalletTransactionsHistory())
+		//	v1.GET("wallets/:walletindex/transactions/history", restClient.getWalletTransactionsHistory())
 	}
 	return restClient, nil
 }
@@ -347,7 +347,6 @@ func (restClient *RestClient) getFeeRate() gin.HandlerFunc {
 			"code":    http.StatusOK,
 			"message": http.StatusText(http.StatusOK),
 		})
-
 	}
 }
 
@@ -436,7 +435,6 @@ func (restClient *RestClient) getSpendableOutputs() gin.HandlerFunc {
 			"message": message,
 			"outs":    spOuts,
 		})
-
 	}
 }
 
@@ -481,6 +479,12 @@ func (restClient *RestClient) sendRawTransaction() gin.HandlerFunc {
 
 type RawTx struct { // remane RawClientTransaction
 	Transaction string `json:"transaction"` //HexTransaction
+}
+
+func (restClient *RestClient) blank() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+	}
 }
 
 func (restClient *RestClient) getWalletVerboseOld() gin.HandlerFunc {
@@ -575,7 +579,6 @@ func (restClient *RestClient) getWalletVerboseOld() gin.HandlerFunc {
 			"message": message,
 			"wallet":  av,
 		})
-
 	}
 }
 
