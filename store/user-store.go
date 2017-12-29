@@ -44,6 +44,7 @@ type UserStore interface {
 	FindUserErr(query bson.M) error
 	FindUserAddresses(query bson.M, sel bson.M, ws *WalletsSelect) error
 	InsertExchangeRate(ExchangeRates) error
+	GetAllWalletTransactions(query bson.M, walletTxs *[]MultyTX) error
 }
 
 type MongoUserStore struct {
@@ -109,6 +110,10 @@ func (mStore *MongoUserStore) FindUserTxs(query bson.M, userTxs *TxRecord) error
 
 func (mStore *MongoUserStore) InsertTxStore(userTxs TxRecord) error {
 	return mStore.txsData.Insert(userTxs)
+}
+
+func (mStore *MongoUserStore) GetAllWalletTransactions(query bson.M, walletTxs *[]MultyTX) error {
+	return mStore.txsData.Find(query).All(walletTxs)
 }
 
 func (mStore *MongoUserStore) InsertExchangeRate(eRate ExchangeRates) error {
