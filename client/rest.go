@@ -90,7 +90,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		v1.POST("/transaction/send/:currencyid", restClient.sendRawTransaction())
 		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose())
 		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
-		v1.GET("/wallets/:walletindex/transactions/history", restClient.getWalletTransactionsHistory())
+		//v1.GET("/wallets/:walletindex/transactions/history", restClient.getWalletTransactionsHistory())
 	}
 	return restClient, nil
 }
