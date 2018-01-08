@@ -170,7 +170,6 @@ type MultyTX struct {
 	TxAddress   string              `json:"address"`
 	TxStatus    string              `json:"txstatus"`
 	TxOutAmount float64             `json:"txoutamount"`
-	TxFee       float64             `json:"txfee"`
 	TxOutID     int                 `json:"txoutid"`
 	BlockTime   int64               `json:"blocktime"`
 	BlockHeight int64               `json:"blockheight"`
