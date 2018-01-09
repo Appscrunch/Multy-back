@@ -46,7 +46,7 @@ type UserStore interface {
 	FindUserAddresses(query bson.M, sel bson.M, ws *WalletsSelect) error
 	InsertExchangeRate(ExchangeRates, string) error
 	GetExchangeRatesDay() ([]RatesAPIBitstamp, error)
-	GetAllWalletTransactions(query bson.M, walletTxs *[]MultyTX) error
+	GetAllWalletTransactions(query bson.M, walletTxs *TxRecord) error
 }
 
 type MongoUserStore struct {
@@ -152,8 +152,8 @@ func (mStore *MongoUserStore) GetExchangeRatesDay() ([]RatesAPIBitstamp, error) 
 	return nil, nil
 }
 
-func (mStore *MongoUserStore) GetAllWalletTransactions(query bson.M, walletTxs *[]MultyTX) error {
-	return mStore.txsData.Find(query).All(walletTxs)
+func (mStore *MongoUserStore) GetAllWalletTransactions(query bson.M, walletTxs *TxRecord) error {
+	return mStore.txsData.Find(query).One(walletTxs)
 }
 
 func (mStore *MongoUserStore) Close() error {

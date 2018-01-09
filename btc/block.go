@@ -171,6 +171,7 @@ type MultyTX struct {
 	TxStatus    string                      `json:"txstatus"`
 	TxOutAmount float64                     `json:"txoutamount"`
 	TxOutID     int                         `json:"txoutid"`
+	WalletIndex int                         `json:"walletindex"`
 	BlockTime   int64                       `json:"blocktime"`
 	BlockHeight int64                       `json:"blockheight"`
 	TxFee       int64                       `json:"txfee"`
@@ -207,7 +208,7 @@ func newAddresAmount(address string, amount int64) AddresAmount {
 	}
 }
 
-func newMultyTX(txID, txHash, txOutScript, txAddress, txStatus string, txOutAmount float64, txOutID int, blockTime, blockHeight, fee int64, fiatPrice []store.ExchangeRatesRecord, inputs, outputs []AddresAmount) MultyTX {
+func newMultyTX(txID, txHash, txOutScript, txAddress, txStatus string, txOutAmount float64, txOutID, walletindex int, blockTime, blockHeight, fee int64, fiatPrice []store.ExchangeRatesRecord, inputs, outputs []AddresAmount) MultyTX {
 	return MultyTX{
 		TxID:        txID,
 		TxHash:      txHash,
@@ -216,6 +217,7 @@ func newMultyTX(txID, txHash, txOutScript, txAddress, txStatus string, txOutAmou
 		TxStatus:    txStatus,
 		TxOutAmount: txOutAmount,
 		TxOutID:     txOutID,
+		WalletIndex: walletindex,
 		BlockTime:   blockTime,
 		BlockHeight: blockHeight,
 		TxFee:       fee,
@@ -332,6 +334,18 @@ func GetLatestExchangeRate() ([]store.ExchangeRatesRecord, error) {
 	return []store.ExchangeRatesRecord{stocksPoloniex, stocksGdax}, nil
 
 }
+func fetchWalletIndex(wallets []store.Wallet, address string) int {
+	var walletIndex int
+	for _, wallet := range wallets {
+		for _, addr := range wallet.Adresses {
+			if addr.Address == address {
+				walletIndex = wallet.WalletIndex
+				break
+			}
+		}
+	}
+	return walletIndex
+}
 
 func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus string) error {
 	user := store.User{}
@@ -347,11 +361,14 @@ func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus str
 			}
 			fmt.Println("[ITS OUR USER] ", user.UserID)
 
+			walletIndex := fetchWalletIndex(user.Wallets, address)
+
 			inputs, outputs, fee, err := txInfo(txVerbose)
 			if err != nil {
 				log.Errorf("parseInput:txInfo:output: %s", err.Error())
 				continue
 			}
+
 			exRates, err := GetLatestExchangeRate()
 			if err != nil {
 				log.Errorf("parseOutput:GetLatestExchangeRate: %s", err.Error())
@@ -360,7 +377,7 @@ func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus str
 			sel := bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
-				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, output.ScriptPubKey.Hex, address, txStatus, output.Value, int(output.N), blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
+				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, output.ScriptPubKey.Hex, address, txStatus, output.Value, int(output.N), walletIndex, blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
 				sel = bson.M{"userid": user.UserID}
 				update := bson.M{"$push": bson.M{"transactions": newTx}}
 				err = txsData.Update(sel, update)
@@ -379,11 +396,10 @@ func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus str
 					"transactions.$.txstatus":          txStatus,
 					"transactions.$.txblockheight":     blockHeight,
 					"transactions.$.txfee":             fee,
-					"transactions.$.stockexchangerate": []StockExchangeRate{},
+					"transactions.$.stockexchangerate": exRates,
 					"transactions.$.txinputs":          inputs,
 					"transactions.$.txoutputs":         outputs,
 					"transactions.$.blocktime":         blockTimeUnixNano,
-					"transactions.$.fiatprice":         exRates,
 				},
 			}
 
@@ -429,12 +445,14 @@ func parseInput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus stri
 				log.Errorf("parseOutput:GetLatestExchangeRate: %s", err.Error())
 			}
 
+			walletIndex := fetchWalletIndex(user.Wallets, address)
+
 			// Is our user already have this transactions.
 			sel := bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
 				// User have no transaction like this. Add to DB.
-				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, txStatus, previousTxVerbose.Vout[input.Vout].Value, int(previousTxVerbose.Vout[input.Vout].N), blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
+				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, txStatus, previousTxVerbose.Vout[input.Vout].Value, int(previousTxVerbose.Vout[input.Vout].N), walletIndex, blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
 				sel = bson.M{"userid": user.UserID}
 				update := bson.M{"$push": bson.M{"transactions": newTx}}
 				err = txsData.Update(sel, update)
@@ -452,13 +470,11 @@ func parseInput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus stri
 			sel = bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
 			update := bson.M{
 				"$set": bson.M{
-					"transactions.$.txstatus":          txStatus,
-					"transactions.$.txblockheight":     blockHeight,
-					"transactions.$.stockexchangerate": []StockExchangeRate{},
-					"transactions.$.txinputs":          inputs,
-					"transactions.$.txoutputs":         outputs,
-					"transactions.$.blocktime":         blockTimeUnixNano,
-					"transactions.$.fiatprice":         exRates,
+					"transactions.$.txstatus":      txStatus,
+					"transactions.$.txblockheight": blockHeight,
+					"transactions.$.txinputs":      inputs,
+					"transactions.$.txoutputs":     outputs,
+					"transactions.$.blocktime":     blockTimeUnixNano,
 				},
 			}
 			err = txsData.Update(sel, update)

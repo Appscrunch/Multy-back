@@ -869,35 +869,29 @@ func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
 			})
 			return
 		}
-		// selWallet := store.Wallet{}
-		addresses := []string{}
-		for _, wallet := range user.Wallets {
-			if wallet.WalletIndex == walletIndex {
-				for _, address := range wallet.Adresses {
-					addresses = append(addresses, address.Address)
-				}
+
+		query := bson.M{"userid": user.UserID}
+		userTxs := store.TxRecord{}
+		err = restClient.userStore.GetAllWalletTransactions(query, &userTxs)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrTxHistory,
+				"history": walletTxs,
+			})
+			return
+		}
+
+		for _, tx := range userTxs.Transactions {
+			if tx.WalletIndex == walletIndex {
+				walletTxs = append(walletTxs, tx)
 			}
 		}
-		// query := bson.M{
-		// 	"transactions.txaddress": bson.M{
-		// 		"$in": addresses,
-		// 	},
-		// }
 
-		// err = restClient.userStore.GetAllWalletTransactions(query, &walletTxs)
-		// if err != nil {
-		// 	c.JSON(http.StatusBadRequest, gin.H{
-		// 		"code":    http.StatusBadRequest,
-		// 		"message": msgErrTxHistory,
-		// 		"history": walletTxs,
-		// 	})
-		// 	return
-		// }
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    http.StatusBadRequest,
-			"message": msgErrTxHistory,
-			"history": addresses,
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"message": http.StatusText(http.StatusOK),
+			"history": walletTxs,
 		})
 	}
 }

@@ -52,7 +52,7 @@ func InitHandlers(certFromConf string, dbConf *store.Conf) (*rpcclient.Client, e
 	usersData = db.DB(dbConf.DBUsers).C(store.TableUsers) // all db tables
 	mempoolRates = db.DB(dbConf.DBFeeRates).C(store.TableFeeRates)
 	txsData = db.DB(dbConf.DBTx).C(store.TableBTC)
-	exRate = db.DB("DBStockExchangeRate-text").C("TableStockExchangeRate")
+	exRate = db.DB("dev-DBStockExchangeRate").C("TableStockExchangeRate")
 
 	go RunProcess()
 	return rpcClient, nil
