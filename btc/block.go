@@ -164,20 +164,19 @@ func blockTransactions(hash *chainhash.Hash) {
 }
 
 type MultyTX struct {
-	TxID        string              `json:"txid"`
-	TxHash      string              `json:"txhash"`
-	TxOutScript string              `json:"txoutscript"`
-	TxAddress   string              `json:"address"`
-	TxStatus    string              `json:"txstatus"`
-	TxOutAmount float64             `json:"txoutamount"`
-	TxFee       float64             `json:"txfee"`
-	TxOutID     int                 `json:"txoutid"`
-	BlockTime   int64               `json:"blocktime"`
-	BlockHeight int64               `json:"blockheight"`
-	TxFee       int64               `json:"txfee"`
-	FiatPrice   []StockExchangeRate `json:"stockexchangerate"`
-	TxInputs    []AddresAmount      `json:"txinputs"`
-	TxOutputs   []AddresAmount      `json:"txoutputs"`
+	TxID        string                      `json:"txid"`
+	TxHash      string                      `json:"txhash"`
+	TxOutScript string                      `json:"txoutscript"`
+	TxAddress   string                      `json:"address"`
+	TxStatus    string                      `json:"txstatus"`
+	TxOutAmount float64                     `json:"txoutamount"`
+	TxOutID     int                         `json:"txoutid"`
+	BlockTime   int64                       `json:"blocktime"`
+	BlockHeight int64                       `json:"blockheight"`
+	TxFee       int64                       `json:"txfee"`
+	FiatPrice   []store.ExchangeRatesRecord `json:"stockexchangerate"`
+	TxInputs    []AddresAmount              `json:"txinputs"`
+	TxOutputs   []AddresAmount              `json:"txoutputs"`
 }
 type AddresAmount struct {
 	Address string `json:"exchangename"`
@@ -208,7 +207,7 @@ func newAddresAmount(address string, amount int64) AddresAmount {
 	}
 }
 
-func newMultyTX(txID, txHash, txOutScript, txAddress, txStatus string, txOutAmount float64, txOutID int, blockTime, blockHeight, fee int64, fiatPrice []StockExchangeRate, inputs, outputs []AddresAmount) MultyTX {
+func newMultyTX(txID, txHash, txOutScript, txAddress, txStatus string, txOutAmount float64, txOutID int, blockTime, blockHeight, fee int64, fiatPrice []store.ExchangeRatesRecord, inputs, outputs []AddresAmount) MultyTX {
 	return MultyTX{
 		TxID:        txID,
 		TxHash:      txHash,
@@ -312,6 +311,28 @@ func txInfo(txVerbose *btcjson.TxRawResult) ([]AddresAmount, []AddresAmount, int
 	return inputs, outputs, fee, nil
 }
 
+func GetLatestExchangeRate() ([]store.ExchangeRatesRecord, error) {
+	selGdax := bson.M{
+		"stockexchange": "Gdax",
+	}
+	selPoloniex := bson.M{
+		"stockexchange": "Poloniex",
+	}
+	stocksGdax := store.ExchangeRatesRecord{}
+	err := exRate.Find(selGdax).Sort("-timestamp").One(&stocksGdax)
+	if err != nil {
+		return nil, err
+	}
+
+	stocksPoloniex := store.ExchangeRatesRecord{}
+	err = exRate.Find(selPoloniex).Sort("-timestamp").One(&stocksPoloniex)
+	if err != nil {
+		return nil, err
+	}
+	return []store.ExchangeRatesRecord{stocksPoloniex, stocksGdax}, nil
+
+}
+
 func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus string) error {
 	user := store.User{}
 	blockTimeUnixNano := time.Now().Unix()
@@ -331,12 +352,15 @@ func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus str
 				log.Errorf("parseInput:txInfo:output: %s", err.Error())
 				continue
 			}
+			exRates, err := GetLatestExchangeRate()
+			if err != nil {
+				log.Errorf("parseOutput:GetLatestExchangeRate: %s", err.Error())
+			}
 
 			sel := bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
-
-				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, output.ScriptPubKey.Hex, address, txStatus, output.Value, int(output.N), blockTimeUnixNano, blockHeight, fee, []StockExchangeRate{}, inputs, outputs)
+				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, output.ScriptPubKey.Hex, address, txStatus, output.Value, int(output.N), blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
 				sel = bson.M{"userid": user.UserID}
 				update := bson.M{"$push": bson.M{"transactions": newTx}}
 				err = txsData.Update(sel, update)
@@ -359,6 +383,7 @@ func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus str
 					"transactions.$.txinputs":          inputs,
 					"transactions.$.txoutputs":         outputs,
 					"transactions.$.blocktime":         blockTimeUnixNano,
+					"transactions.$.fiatprice":         exRates,
 				},
 			}
 
@@ -399,13 +424,17 @@ func parseInput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus stri
 				log.Errorf("parseInput:txInfo:input: %s", err.Error())
 				continue
 			}
+			exRates, err := GetLatestExchangeRate()
+			if err != nil {
+				log.Errorf("parseOutput:GetLatestExchangeRate: %s", err.Error())
+			}
 
 			// Is our user already have this transactions.
 			sel := bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
 				// User have no transaction like this. Add to DB.
-				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, txStatus, previousTxVerbose.Vout[input.Vout].Value, int(previousTxVerbose.Vout[input.Vout].N), blockTimeUnixNano, blockHeight, fee, []StockExchangeRate{}, inputs, outputs)
+				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, txStatus, previousTxVerbose.Vout[input.Vout].Value, int(previousTxVerbose.Vout[input.Vout].N), blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
 				sel = bson.M{"userid": user.UserID}
 				update := bson.M{"$push": bson.M{"transactions": newTx}}
 				err = txsData.Update(sel, update)
@@ -429,6 +458,7 @@ func parseInput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus stri
 					"transactions.$.txinputs":          inputs,
 					"transactions.$.txoutputs":         outputs,
 					"transactions.$.blocktime":         blockTimeUnixNano,
+					"transactions.$.fiatprice":         exRates,
 				},
 			}
 			err = txsData.Update(sel, update)

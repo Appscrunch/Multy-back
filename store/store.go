@@ -124,6 +124,28 @@ func (mStore *MongoUserStore) InsertExchangeRate(eRate ExchangeRates, exchangeSt
 	return mStore.stockExchangeRate.Insert(eRateRecord)
 }
 
+// func (mStore *MongoUserStore) GetLatestExchangeRate() ([]ExchangeRatesRecord, error) {
+// 	selGdax := bson.M{
+// 		"stockexchange": "Gdax",
+// 	}
+// 	selPoloniex := bson.M{
+// 		"stockexchange": "Poloniex",
+// 	}
+// 	stocksGdax := ExchangeRatesRecord{}
+// 	err := mStore.stockExchangeRate.Find(selGdax).Sort("-timestamp").One(&stocksGdax)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	stocksPoloniex := ExchangeRatesRecord{}
+// 	err = mStore.stockExchangeRate.Find(selPoloniex).Sort("-timestamp").One(&stocksPoloniex)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return []ExchangeRatesRecord{stocksPoloniex, stocksGdax}, nil
+
+// }
+
 // GetExchangeRatesDay returns exchange rates for last day with time interval equal to hour
 func (mStore *MongoUserStore) GetExchangeRatesDay() ([]RatesAPIBitstamp, error) {
 	// not implemented

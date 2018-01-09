@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	msgErrWalletIndex           = "already existing wallet index"
+	msgErrWalletIndex = "already existing wallet index"
+
 	msgErrTxHistory             = "not found any transaction history"
 	msgErrAddressIndex          = "already existing address index"
 	msgErrMethodNotImplennted   = "method is not implemented"
@@ -90,7 +91,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		v1.POST("/transaction/send/:currencyid", restClient.sendRawTransaction())
 		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose())
 		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
-		v1.GET("/wallets/:walletindex/transactions/history", restClient.getWalletTransactionsHistory())
+		v1.GET("/wallets/transactions/:walletindex", restClient.getWalletTransactionsHistory())
 	}
 	return restClient, nil
 }
@@ -863,11 +864,12 @@ func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
-				"message": msgErrWalletIndex,
+				"message": msgErrDecodeWalletIndexErr,
 				"history": walletTxs,
 			})
 			return
 		}
+		// selWallet := store.Wallet{}
 		addresses := []string{}
 		for _, wallet := range user.Wallets {
 			if wallet.WalletIndex == walletIndex {
@@ -876,26 +878,26 @@ func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
 				}
 			}
 		}
-		query := bson.M{
-			"transactions.txaddress": bson.M{
-				"$in": addresses,
-			},
-		}
+		// query := bson.M{
+		// 	"transactions.txaddress": bson.M{
+		// 		"$in": addresses,
+		// 	},
+		// }
 
-		err = restClient.userStore.GetAllWalletTransactions(query, &walletTxs)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":    http.StatusBadRequest,
-				"message": msgErrTxHistory,
-				"history": walletTxs,
-			})
-			return
-		}
+		// err = restClient.userStore.GetAllWalletTransactions(query, &walletTxs)
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{
+		// 		"code":    http.StatusBadRequest,
+		// 		"message": msgErrTxHistory,
+		// 		"history": walletTxs,
+		// 	})
+		// 	return
+		// }
 
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    http.StatusBadRequest,
 			"message": msgErrTxHistory,
-			"history": walletTxs,
+			"history": addresses,
 		})
 	}
 }
