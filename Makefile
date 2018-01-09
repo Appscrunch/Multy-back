@@ -9,7 +9,7 @@ LD_OPTS = -ldflags="-X main.branch=${BRANCH} -X main.commit=${COMMIT} -X main.bu
 all: setup deps build 
 
 run:
-	./cmd/$(NAME)
+	cd cmd && ./$(NAME) && ../
 
 setup:
 	go get -u github.com/kardianos/govendor

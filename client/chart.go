@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -179,10 +177,10 @@ func (eChart *exchangeChart) getExchangeDay() []store.RatesAPIBitstamp {
 	eChart.rates.mDay.Lock()
 	defer eChart.rates.mDay.Unlock()
 
-	for _, k := range eChart.rates.BTCtoUSDDay {
+	/*for _, k := range eChart.rates.BTCtoUSDDay {
 		i, _ := strconv.Atoi(k.Date)
 		log.Println(time.Unix(int64(i), 0).Format(time.RFC3339), "=", k.Price)
-	}
+	}*/
 	return eChart.rates.BTCtoUSDDay
 }
 
