@@ -121,6 +121,15 @@ type ExchangeRatesRecord struct {
 	Timestamp     int64         `json:"timestamp"`
 	StockExchange string        `json:"stock_exchange"`
 }
+type SpendableOutputs struct {
+	TxID              string                `json:"txid"`
+	TxOutID           int                   `json:"txoutid"`
+	TxOutAmount       int                   `json:"txoutamount"`
+	TxOutScript       string                `json:"txoutscript"`
+	AddressIndex      int                   `json:"addressindex"`
+	TxStatus          string                `json:"txstatus"`
+	StockExchangeRate []ExchangeRatesRecord `json:"stockexchangerate"`
+}
 
 // ExchangeRates stores exchange rates
 type ExchangeRates struct {
