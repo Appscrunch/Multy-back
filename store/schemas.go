@@ -74,8 +74,9 @@ type RatesRecord struct {
 }
 
 type Address struct {
-	AddressIndex int    `json:"addressIndex" bson:"addressIndex"`
-	Address      string `json:"address" bson:"address"`
+	AddressIndex   int    `json:"addressIndex" bson:"addressIndex"`
+	Address        string `json:"address" bson:"address"`
+	LastActionTime int64  `json:"lastActionTime" bson:"lastActionTime"`
 }
 type WalletsSelect struct {
 	Wallets []struct {

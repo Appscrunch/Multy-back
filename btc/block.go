@@ -3,6 +3,7 @@ package btc
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	mgo "gopkg.in/mgo.v2"
@@ -230,10 +231,22 @@ func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus str
 			sel := bson.M{"userID": user.UserID, "wallets.walletIndex": walletIndex}
 			update := bson.M{
 				"$set": bson.M{
-					"wallets.$.status": store.WalletStatusOK,
+					"wallets.$.status":         store.WalletStatusOK,
+					"wallets.$.lastActionTime": time.Now().Unix(),
 				},
 			}
 
+			err = usersData.Update(sel, update)
+			if err != nil {
+				log.Errorf("parseOutput:restClient.userStore.Update: %s", err.Error())
+			}
+
+			sel = bson.M{"userID": user.UserID, "wallets.addresses.address": address}
+			update = bson.M{
+				"$set": bson.M{
+					"wallets." + strconv.Itoa(walletIndex) + ".addresses.$.data": time.Now().Unix(),
+				},
+			}
 			err = usersData.Update(sel, update)
 			if err != nil {
 				log.Errorf("parseOutput:restClient.userStore.Update: %s", err.Error())
@@ -323,8 +336,30 @@ func parseInput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus stri
 
 			walletIndex := fetchWalletIndex(user.Wallets, address)
 
+			sel := bson.M{"userID": user.UserID, "wallets.walletIndex": walletIndex}
+			update := bson.M{
+				"$set": bson.M{
+					"wallets.$.lastActionTime": time.Now().Unix(),
+				},
+			}
+			err = usersData.Update(sel, update)
+			if err != nil {
+				log.Errorf("parseOutput:restClient.userStore.Update: %s", err.Error())
+			}
+
+			sel = bson.M{"userID": user.UserID, "wallets.addresses.address": address}
+			update = bson.M{
+				"$set": bson.M{
+					"wallets." + strconv.Itoa(walletIndex) + ".addresses.$.data": time.Now().Unix(),
+				},
+			}
+			err = usersData.Update(sel, update)
+			if err != nil {
+				log.Errorf("parseOutput:restClient.userStore.Update: %s", err.Error())
+			}
+
 			// Is our user already have this transactions.
-			sel := bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
+			sel = bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
 				// User have no transaction like this. Add to DB.
@@ -344,7 +379,7 @@ func parseInput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus stri
 			// User have this transaction but with another status.
 			// Update statsus, block height, exchange rate,block time, inputs and outputs.
 			sel = bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
-			update := bson.M{
+			update = bson.M{
 				"$set": bson.M{
 					"transactions.$.txstatus":    txStatus,
 					"transactions.$.blockheight": blockHeight,
