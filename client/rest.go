@@ -81,6 +81,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 	initMiddlewareJWT(restClient)
 
 	r.POST("/auth", restClient.LoginHandler())
+	r.GET("/server/config", restClient.getServerConfig())
 
 	v1 := r.Group("/api/v1")
 	v1.Use(restClient.middlewareJWT.MiddlewareFunc())
@@ -94,7 +95,7 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose())
 		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
 		v1.GET("/wallets/transactions/:walletindex", restClient.getWalletTransactionsHistory())
-		v1.GET("/server/config", restClient.getServerConfig())
+
 	}
 	return restClient, nil
 }
@@ -243,12 +244,29 @@ func (restClient *RestClient) addWallet() gin.HandlerFunc {
 
 func (restClient *RestClient) getServerConfig() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
+		resp := map[string]interface{}{
+			"stockexchanges": map[string][]string{
+				"poloniex": []string{"usd_btc", "eth_btc", "eth_usd", "btc_usd"},
+				"gdax":     []string{"eur_btc", "usd_btc", "eth_btc", "eth_usd", "eth_eur", "btc_usd"},
+			},
+			"servertime": time.Now().Unix(),
+			"api":        "0.01",
+			"android": map[string]int{
+				"soft": 1,
+				"hard": 1,
+			},
+			"ios": map[string]int{
+				"soft": 18,
+				"hard": 1,
+			},
+		}
+		c.JSON(http.StatusOK, resp)
 	}
 }
 
 func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		restClient.log.Errorf("УДАЛЯЕМ len\t[addr=%s]", c.Request.RemoteAddr)
 		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
 		if len(authHeader) < 2 {
 			restClient.log.Errorf("getAllWalletsVerbose: wrong Authorization header len\t[addr=%s]", c.Request.RemoteAddr)
@@ -534,13 +552,15 @@ func (restClient *RestClient) getSpendableOutputs() gin.HandlerFunc {
 			}
 
 			for _, tx := range userTxs.Transactions {
-				if tx.TxAddress == address && tx.TxStatus == "incoming in block" {
-					spOuts = append(spOuts, store.SpendableOutputs{
-						TxID:        tx.TxID,
-						TxOutID:     tx.TxOutID,
-						TxOutAmount: int(tx.TxOutAmount * float64(100000000)),
-						TxOutScript: tx.TxOutScript,
-					})
+				if tx.TxAddress == address {
+					if tx.TxStatus == "incoming in block" || tx.TxStatus == "in block confirmed" {
+						spOuts = append(spOuts, store.SpendableOutputs{
+							TxID:        tx.TxID,
+							TxOutID:     tx.TxOutID,
+							TxOutAmount: int(tx.TxOutAmount * float64(100000000)),
+							TxOutScript: tx.TxOutScript,
+						})
+					}
 				}
 			}
 

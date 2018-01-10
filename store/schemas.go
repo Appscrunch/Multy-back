@@ -105,7 +105,7 @@ type MultyTX struct {
 	TxOutputs         []AddresAmount        `json:"txoutputs"`
 }
 type AddresAmount struct {
-	Address string `json:"exchangename"`
+	Address string `json:"address"`
 	Amount  int64  `json:"amount"`
 }
 

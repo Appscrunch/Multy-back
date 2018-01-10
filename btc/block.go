@@ -183,7 +183,7 @@ func blockConfirmations(hash *chainhash.Hash) {
 	blockVerbose, err := rpcClient.GetBlockVerbose(hash)
 	blockHeight := blockVerbose.Height
 
-	sel := bson.M{"transactions.txblockheight": bson.M{"$lte": blockHeight - SixBlockConfirmation, "$gte": blockHeight - SixPlusBlockConfirmation}}
+	sel := bson.M{"transactions.blockheight": bson.M{"$lte": blockHeight - SixBlockConfirmation, "$gte": blockHeight - SixPlusBlockConfirmation}}
 	update := bson.M{
 		"$set": bson.M{
 			"transactions.$.txstatus": TxStatusInBlockConfirmed,
@@ -194,7 +194,7 @@ func blockConfirmations(hash *chainhash.Hash) {
 		log.Errorf("blockConfirmations:txsData.Update: %s", err.Error())
 	}
 
-	query := bson.M{"transactions.txblockheight": blockHeight + SixBlockConfirmation}
+	query := bson.M{"transactions.blockheight": blockHeight + SixBlockConfirmation}
 
 	var records []store.TxRecord
 	txsData.Find(query).All(&records)
@@ -270,7 +270,7 @@ func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus str
 			update = bson.M{
 				"$set": bson.M{
 					"transactions.$.txstatus":          txStatus,
-					"transactions.$.txblockheight":     blockHeight,
+					"transactions.$.blockheight":       blockHeight,
 					"transactions.$.txfee":             fee,
 					"transactions.$.stockexchangerate": exRates,
 					"transactions.$.txinputs":          inputs,
@@ -346,11 +346,11 @@ func parseInput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus stri
 			sel = bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
 			update := bson.M{
 				"$set": bson.M{
-					"transactions.$.txstatus":      txStatus,
-					"transactions.$.txblockheight": blockHeight,
-					"transactions.$.txinputs":      inputs,
-					"transactions.$.txoutputs":     outputs,
-					"transactions.$.blocktime":     blockTimeUnixNano,
+					"transactions.$.txstatus":    txStatus,
+					"transactions.$.blockheight": blockHeight,
+					"transactions.$.txinputs":    inputs,
+					"transactions.$.txoutputs":   outputs,
+					"transactions.$.blocktime":   blockTimeUnixNano,
 				},
 			}
 			err = txsData.Update(sel, update)
