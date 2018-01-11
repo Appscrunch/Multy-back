@@ -37,7 +37,7 @@ func InitHandlers(certFromConf string, dbConf *store.Conf, nsqAddr string) (*rpc
 	connCfg.Certificates = []byte(Cert)
 	log.Infof("cert=%s\n", Cert)
 
-	db, err := mgo.Dial("localhost:27017")
+	db, err := mgo.Dial(dbConf.Address)
 	if err != nil {
 		log.Errorf("RunProcess: Cand connect to DB: %s", err.Error())
 		return nil, err

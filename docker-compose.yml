@@ -1,7 +1,7 @@
 version: '3.4'
 services:
   multy-back:
-    image: multyio/multy-back
+    image: multyio/multy-back:1.0.0
     volumes:
       - ./:/go/src/Appscrunch/Multy-back
     ports:
@@ -12,6 +12,7 @@ services:
       - nsqlookup
       - nsqadmin
       - mongodb
+      - bitcoind
 
   nsqlookup:
     image: nsqio/nsq
@@ -51,3 +52,23 @@ services:
       # add logpath
     ports:
       - 27017:27017
+
+  bitcoind:
+    image: amacneil/bitcoin
+    command: bitcoind
+    healthcheck:
+      test: ["CMD", "/entrypoint.sh", "bitcoin-cli", "getinfo"]
+    ports:
+      - "18334:18334"
+    volumes:
+      - bitcoin-data:/data
+
+  bitcoin-cli:
+    image: amacneil/bitcoin
+    entrypoint: ["/entrypoint.sh", "bitcoin-cli"]
+    command: ""
+    depends_on:
+      - bitcoind
+
+volumes:
+    bitcoin-data:
