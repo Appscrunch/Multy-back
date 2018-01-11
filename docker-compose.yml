@@ -1,9 +1,7 @@
 version: '3.4'
 services:
   multy-back:
-    image: golang:1.9
-    container_name: multy-back
-    working_dir: /go/src/Appscrunch/Multy-back
+    image: multyio/multy-back
     volumes:
       - ./:/go/src/Appscrunch/Multy-back
     ports:
@@ -11,9 +9,9 @@ services:
       - "5578:5578"
     depends_on:
       - nsq
+      - nsqlookup
+      - nsqadmin
       - mongodb
-    build:
-      context: .
 
   nsqlookup:
     image: nsqio/nsq

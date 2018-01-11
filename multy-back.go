@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/Appscrunch/Multy-back/btc"
 	"github.com/Appscrunch/Multy-back/client"
 	"github.com/Appscrunch/Multy-back/store"
 	"github.com/KristinaEtc/slf"
@@ -46,12 +47,12 @@ func Init(conf *Configuration) (*Multy, error) {
 	}
 	multy.userStore = userStore
 
-	/*	btcClient, err := btc.InitHandlers(getCertificate(conf.BTCSertificate), &conf.Database)
-		if err != nil {
-			return nil, fmt.Errorf("Blockchain api initialization: %s", err.Error())
-		}
-		log.Debug("BTC handlers initialization done")
-		multy.btcClient = btcClient*/
+	btcClient, err := btc.InitHandlers(getCertificate(conf.BTCSertificate), &conf.Database, conf.NSQAddress)
+	if err != nil {
+		return nil, fmt.Errorf("Blockchain api initialization: %s", err.Error())
+	}
+	log.Debug("BTC handlers initialization done")
+	multy.btcClient = btcClient
 
 	if err = multy.initRoutes(conf); err != nil {
 		return nil, fmt.Errorf("Router initialization: %s", err.Error())
@@ -75,7 +76,7 @@ func (multy *Multy) initRoutes(conf *Configuration) error {
 	gin.SetMode(gin.DebugMode)
 
 	socketIORoute := router.Group("/socketio")
-	socketIOPool, err := client.SetSocketIOHandlers(socketIORoute, conf.SocketioAddr, multy.userStore)
+	socketIOPool, err := client.SetSocketIOHandlers(socketIORoute, conf.SocketioAddr, conf.NSQAddress, multy.userStore)
 	if err != nil {
 		return err
 	}
@@ -92,7 +93,7 @@ func (multy *Multy) initRoutes(conf *Configuration) error {
 	}
 	multy.restClient = restClient
 
-	firebaseClient, err := client.InitFirebaseConn(&conf.Firebase, multy.route)
+	firebaseClient, err := client.InitFirebaseConn(&conf.Firebase, multy.route, conf.NSQAddress)
 	if err != nil {
 		return err
 	}

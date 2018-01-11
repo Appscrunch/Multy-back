@@ -21,8 +21,6 @@ var (
 const (
 	saveToDBInterval       = time.Second * 10
 	updateForExchangeChart = time.Hour
-
-	defaultNSQAddr = "127.0.0.1:4150"
 )
 
 // StockRate stores rates from specific stock and protected with mutex
