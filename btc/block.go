@@ -1,3 +1,8 @@
+/*
+Copyright 2017 Idealnaya rabota LLC
+Licensed under Multy.io license.
+See LICENSE for details
+*/
 package btc
 
 import (
@@ -266,7 +271,8 @@ func parseOutput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus str
 			sel = bson.M{"userid": user.UserID, "transactions.txid": txVerbose.Txid, "transactions.txaddress": address}
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
-				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, output.ScriptPubKey.Hex, address, txStatus, output.Value, int(output.N), walletIndex, blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
+				txOutAmount := int64(100000000 * output.Value)
+				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, output.ScriptPubKey.Hex, address, txStatus, int(output.N), walletIndex, txOutAmount, blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
 				sel = bson.M{"userid": user.UserID}
 				update := bson.M{"$push": bson.M{"transactions": newTx}}
 				err = txsData.Update(sel, update)
@@ -363,7 +369,8 @@ func parseInput(txVerbose *btcjson.TxRawResult, blockHeight int64, txStatus stri
 			err = txsData.Find(sel).One(nil)
 			if err == mgo.ErrNotFound {
 				// User have no transaction like this. Add to DB.
-				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, txStatus, previousTxVerbose.Vout[input.Vout].Value, int(previousTxVerbose.Vout[input.Vout].N), walletIndex, blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
+				txOutAmount := int64(100000000 * previousTxVerbose.Vout[input.Vout].Value)
+				newTx := newMultyTX(txVerbose.Txid, txVerbose.Hash, previousTxVerbose.Vout[input.Vout].ScriptPubKey.Hex, address, txStatus, int(previousTxVerbose.Vout[input.Vout].N), walletIndex, txOutAmount, blockTimeUnixNano, blockHeight, fee, exRates, inputs, outputs)
 				sel = bson.M{"userid": user.UserID}
 				update := bson.M{"$push": bson.M{"transactions": newTx}}
 				err = txsData.Update(sel, update)

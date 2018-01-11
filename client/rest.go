@@ -1,3 +1,8 @@
+/*
+Copyright 2017 Idealnaya rabota LLC
+Licensed under Multy.io license.
+See LICENSE for details
+*/
 package client
 
 import (
@@ -398,7 +403,7 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 
 					for _, tx := range unspendTxs {
 						if tx.TxAddress == address.Address {
-							balance += int(tx.TxOutAmount * float64(100000000))
+							balance += int(tx.TxOutAmount)
 						}
 					}
 					totalBalance += balance
@@ -624,7 +629,7 @@ func (restClient *RestClient) getSpendableOutputs() gin.HandlerFunc {
 						spOuts = append(spOuts, store.SpendableOutputs{
 							TxID:        tx.TxID,
 							TxOutID:     tx.TxOutID,
-							TxOutAmount: int(tx.TxOutAmount * float64(100000000)),
+							TxOutAmount: int(tx.TxOutAmount),
 							TxOutScript: tx.TxOutScript,
 						})
 					}
@@ -858,12 +863,12 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 
 					for _, tx := range unspendTxs {
 						if tx.TxAddress == address.Address {
-							balance += int(tx.TxOutAmount * float64(100000000))
+							balance += int(tx.TxOutAmount)
 
 							spOuts = append(spOuts, store.SpendableOutputs{
 								TxID:              tx.TxID,
 								TxOutID:           tx.TxOutID,
-								TxOutAmount:       int(tx.TxOutAmount * float64(100000000)),
+								TxOutAmount:       int(tx.TxOutAmount),
 								TxOutScript:       tx.TxOutScript,
 								TxStatus:          tx.TxStatus,
 								AddressIndex:      address.AddressIndex,
@@ -911,7 +916,7 @@ type WalletVerbose struct {
 	VerboseAddress []AddressVerbose `json:"addresses"`
 }
 type AddressVerbose struct {
-	LastActionTime int64
+	LastActionTime int64                    `json:"lastActionTime"`
 	Address        string                   `json:"address"`
 	AddressIndex   int                      `json:"addressindex"`
 	Amount         int                      `json:"amount"`
@@ -987,12 +992,12 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 
 					for _, tx := range unspendTxs {
 						if tx.TxAddress == address.Address {
-							balance += int(tx.TxOutAmount * float64(100000000))
+							balance += int(tx.TxOutAmount)
 
 							spOuts = append(spOuts, store.SpendableOutputs{
 								TxID:              tx.TxID,
 								TxOutID:           tx.TxOutID,
-								TxOutAmount:       int(tx.TxOutAmount * float64(100000000)),
+								TxOutAmount:       int(tx.TxOutAmount),
 								TxOutScript:       tx.TxOutScript,
 								TxStatus:          tx.TxStatus,
 								AddressIndex:      address.AddressIndex,
@@ -1089,10 +1094,47 @@ func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
 			}
 		}
 
+		txHistory := []TxHistory{}
+		for _, walletTx := range walletTxs {
+			txHistory = append(txHistory, TxHistory{
+				TxID:        walletTx.TxID,
+				TxHash:      walletTx.TxHash,
+				TxOutScript: walletTx.TxOutScript,
+				TxAddress:   walletTx.TxAddress,
+				TxStatus:    walletTx.TxStatus,
+				TxOutAmount: walletTx.TxOutAmount,
+				TxOutID:     walletTx.TxOutID,
+				WalletIndex: walletTx.WalletIndex,
+				BlockTime:   walletTx.BlockTime,
+				BlockHeight: walletTx.BlockHeight,
+				TxFee:       walletTx.TxFee,
+				BtcToUsd:    walletTx.StockExchangeRate[0].Exchanges.BTCtoUSD,
+				TxInputs:    walletTx.TxInputs,
+				TxOutputs:   walletTx.TxOutputs,
+			})
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
 			"message": http.StatusText(http.StatusOK),
-			"history": walletTxs,
+			"history": txHistory,
 		})
 	}
+}
+
+type TxHistory struct {
+	TxID        string               `json:"txid"`
+	TxHash      string               `json:"txhash"`
+	TxOutScript string               `json:"txoutscript"`
+	TxAddress   string               `json:"address"`
+	TxStatus    string               `json:"txstatus"`
+	TxOutAmount int64                `json:"txoutamount"`
+	TxOutID     int                  `json:"txoutid"`
+	WalletIndex int                  `json:"walletindex"`
+	BlockTime   int64                `json:"blocktime"`
+	BlockHeight int64                `json:"blockheight"`
+	TxFee       int64                `json:"txfee"`
+	BtcToUsd    float64              `json:"btctousd"`
+	TxInputs    []store.AddresAmount `json:"txinputs"`
+	TxOutputs   []store.AddresAmount `json:"txoutputs"`
 }

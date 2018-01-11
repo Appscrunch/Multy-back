@@ -1,3 +1,8 @@
+/*
+Copyright 2017 Idealnaya rabota LLC
+Licensed under Multy.io license.
+See LICENSE for details
+*/
 package store
 
 import (
@@ -95,7 +100,7 @@ type MultyTX struct {
 	TxOutScript       string                `json:"txoutscript"`
 	TxAddress         string                `json:"address"`
 	TxStatus          string                `json:"txstatus"`
-	TxOutAmount       float64               `json:"txoutamount"`
+	TxOutAmount       int64                 `json:"txoutamount"`
 	TxOutID           int                   `json:"txoutid"`
 	WalletIndex       int                   `json:"walletindex"`
 	BlockTime         int64                 `json:"blocktime"`
