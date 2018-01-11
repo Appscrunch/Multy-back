@@ -43,7 +43,7 @@ var (
 var Cert = `testcert`
 
 var connCfg = &rpcclient.ConnConfig{
-	Host:     "localhost:18334",
+	Host:     "192.168.0.121:18334",
 	User:     "multy",
 	Pass:     "multy",
 	Endpoint: "ws",
