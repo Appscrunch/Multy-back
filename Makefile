@@ -6,7 +6,7 @@ BUILDTIME = $(shell date +%Y-%m-%dT%T%z)
 
 LD_OPTS = -ldflags="-X main.branch=${BRANCH} -X main.commit=${COMMIT} -X main.buildtime=${BUILDTIME} -w"
 
-all: setup deps build run
+all:  build run
 
 run:
 	cd cmd && ./$(NAME) && ../

@@ -5,6 +5,9 @@ WORKDIR /go/src/github.com/Appscrunch/Multy-back
 
 COPY . /go/src/github.com/Appscrunch/Multy-back
 
+RUN touch cmd/rpc.cert && \
+    touch cmd/multy.config
+
 # TODO: add ssl creds
 #COPY ssl ssl
 

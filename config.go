@@ -16,4 +16,5 @@ type Configuration struct {
 	Firebase       client.FirebaseConf
 	BTCSertificate string
 	NSQAddress     string
+	BTCNodeAddress string
 }

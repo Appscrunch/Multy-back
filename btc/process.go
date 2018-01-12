@@ -54,7 +54,7 @@ var connCfg = &rpcclient.ConnConfig{
 
 }
 
-func RunProcess() error {
+func RunProcess(btcNodeAddress string) error {
 	log.Info("Run Process")
 
 	// Drop collection on every new start of application
@@ -85,6 +85,8 @@ func RunProcess() error {
 		},
 	}
 
+	//overwrite btc node address
+	connCfg.Host = btcNodeAddress
 	rpcClient, err = rpcclient.New(connCfg, &ntfnHandlers)
 	if err != nil {
 		log.Errorf("RunProcess(): rpcclient.New %s\n", err.Error())
