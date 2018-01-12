@@ -6,14 +6,11 @@ See LICENSE for details
 package client
 
 import (
-<<<<<<< HEAD
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
-=======
->>>>>>> master
 	"net/http"
 	"strconv"
 	"strings"
@@ -32,10 +29,7 @@ import (
 )
 
 const (
-<<<<<<< HEAD
 	msgErrMissingRequestParams  = "missing request parametrs"
-=======
->>>>>>> master
 	msgErrServerError           = "internal server error"
 	msgErrNoWallet              = "no such wallet"
 	msgErrWalletNonZeroBalance  = "can't delete non zero balance wallet"
@@ -112,11 +106,8 @@ func SetRestHandlers(userDB store.UserStore, btcConfTest, btcConfMain BTCApiConf
 		v1.GET("/wallet/:walletindex/verbose", restClient.getWalletVerbose())
 		v1.GET("/wallets/verbose", restClient.getAllWalletsVerbose())
 		v1.GET("/wallets/transactions/:walletindex", restClient.getWalletTransactionsHistory())
-<<<<<<< HEAD
 		v1.POST("/wallet/name/:walletindex", restClient.changeWalletName())
 		v1.GET("/exchange/changelly/list", restClient.changellyListCurrencies())
-=======
->>>>>>> master
 	}
 	return restClient, nil
 }
@@ -263,7 +254,6 @@ func (restClient *RestClient) addWallet() gin.HandlerFunc {
 	}
 }
 
-<<<<<<< HEAD
 type ChangeName struct {
 	WalletName string `json:"walletname"`
 }
@@ -366,8 +356,6 @@ func (restClient *RestClient) getServerConfig() gin.HandlerFunc {
 	}
 }
 
-=======
->>>>>>> master
 func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := strings.Split(c.GetHeader("Authorization"), " ")
@@ -435,11 +423,7 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 
 					for _, tx := range unspendTxs {
 						if tx.TxAddress == address.Address {
-<<<<<<< HEAD
 							balance += int(tx.TxOutAmount)
-=======
-							balance += int(tx.TxOutAmount * float64(100000000))
->>>>>>> master
 						}
 					}
 					totalBalance += balance
@@ -1023,7 +1007,6 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 
 		for _, wallet := range user.Wallets {
 			if wallet.Status == store.WalletStatusOK {
-<<<<<<< HEAD
 
 				for _, address := range wallet.Adresses {
 
@@ -1039,29 +1022,11 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 								TxStatus:          tx.TxStatus,
 								AddressIndex:      address.AddressIndex,
 								StockExchangeRate: tx.StockExchangeRate, // from db
-=======
-
-				for _, address := range wallet.Adresses {
-
-					for _, tx := range unspendTxs {
-						if tx.TxAddress == address.Address {
-							balance += int(tx.TxOutAmount * float64(100000000))
-
-							spOuts = append(spOuts, SpendableOutputs{
-								TxID:              tx.TxID,
-								TxOutID:           tx.TxOutID,
-								TxOutAmount:       int(tx.TxOutAmount * float64(100000000)),
-								TxOutScript:       tx.TxOutScript,
-								TxStatus:          tx.TxStatus,
-								AddressIndex:      address.AddressIndex,
-								StockExchangeRate: []StockExchangeRate{}, // from db
->>>>>>> master
 							})
 						}
 					}
 
 					av = append(av, AddressVerbose{
-<<<<<<< HEAD
 						LastActionTime: address.LastActionTime,
 						Address:        address.Address,
 						AddressIndex:   address.AddressIndex,
@@ -1069,14 +1034,6 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 						SpendableOuts:  spOuts,
 					})
 					spOuts = []store.SpendableOutputs{}
-=======
-						Address:       address.Address,
-						AddressIndex:  address.AddressIndex,
-						Amount:        balance,
-						SpendableOuts: spOuts,
-					})
-					spOuts = []SpendableOutputs{}
->>>>>>> master
 					balance = 0
 				}
 
@@ -1157,7 +1114,6 @@ func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
 			}
 		}
 
-<<<<<<< HEAD
 		txHistory := []TxHistory{}
 		for _, walletTx := range walletTxs {
 			txHistory = append(txHistory, TxHistory{
@@ -1244,12 +1200,6 @@ func (restClient *RestClient) changellyListCurrencies() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    resp.StatusCode,
 			"message": string(body),
-=======
-		c.JSON(http.StatusOK, gin.H{
-			"code":    http.StatusOK,
-			"message": http.StatusText(http.StatusOK),
-			"history": walletTxs,
->>>>>>> master
 		})
 
 	}
