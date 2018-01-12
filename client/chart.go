@@ -9,10 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -28,8 +26,6 @@ var (
 const (
 	saveToDBInterval       = time.Second * 10
 	updateForExchangeChart = time.Hour
-
-	defaultNSQAddr = "127.0.0.1:4150"
 )
 
 // StockRate stores rates from specific stock and protected with mutex
@@ -184,10 +180,10 @@ func (eChart *exchangeChart) getExchangeDay() []store.RatesAPIBitstamp {
 	eChart.rates.mDay.Lock()
 	defer eChart.rates.mDay.Unlock()
 
-	for _, k := range eChart.rates.BTCtoUSDDay {
+	/*for _, k := range eChart.rates.BTCtoUSDDay {
 		i, _ := strconv.Atoi(k.Date)
 		log.Println(time.Unix(int64(i), 0).Format(time.RFC3339), "=", k.Price)
-	}
+	}*/
 	return eChart.rates.BTCtoUSDDay
 }
 

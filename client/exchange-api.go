@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/KristinaEtc/slf"
 	"github.com/gorilla/websocket"
@@ -18,6 +19,8 @@ import (
 const (
 	exchangeDdax     = "Gdax"
 	exchangePoloniex = "Poloniex"
+
+	backOffLimit = 86400 // reconnection stop
 )
 
 // GdaxAPI wraps websocket connection for GdaxAPI
@@ -35,14 +38,12 @@ type GDAXSocketEvent struct {
 }
 
 func (eChart *exchangeChart) initGdaxAPI(log slf.StructuredLogger) (*GdaxAPI, error) {
-	u := url.URL{Scheme: "wss", Host: "ws-feed.gdax.com", Path: ""}
-
 	gdaxAPI := &GdaxAPI{rates: eChart.rates.exchangeGdax, log: log.WithField("api", "gdax")}
-	gdaxAPI.log.Infof("Connecting to %s", u.String())
 
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	c, err := initGdaxConn()
 	if err != nil {
-		gdaxAPI.log.Errorf("Dial: %s", err.Error())
+		eChart.log.Errorf("initGdaxConn: %s", err.Error())
+		gdaxAPI.reconnect()
 		return nil, err
 	}
 
@@ -58,6 +59,16 @@ func (eChart *exchangeChart) initGdaxAPI(log slf.StructuredLogger) (*GdaxAPI, er
 	return gdaxAPI, nil
 }
 
+func initGdaxConn() (*websocket.Conn, error) {
+	u := url.URL{Scheme: "wss", Host: "ws-feed.gdax.com", Path: ""}
+	//gdaxAPI.log.Infof("Connecting to %s", u.String())
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 func (gdax *GdaxAPI) subscribe() {
 	subscribtion := `{"type":"subscribe","channels":[{"name":"ticker_1000","product_ids":["BTC-USD","BTC-EUR","ETH-BTC","ETH-USD","ETH-EUR"]}]}`
 	gdax.conn.WriteMessage(websocket.TextMessage, []byte(subscribtion))
@@ -68,6 +79,7 @@ func (gdax *GdaxAPI) listen() {
 		_, message, err := gdax.conn.ReadMessage()
 		if err != nil {
 			gdax.log.Errorf("read message: %s", err.Error())
+			gdax.reconnect()
 			continue
 		}
 
@@ -78,6 +90,44 @@ func (gdax *GdaxAPI) listen() {
 			continue
 		}
 		gdax.updateRate(rateRaw)
+	}
+}
+
+func (gdax *GdaxAPI) reconnect() {
+	var (
+		c   *websocket.Conn
+		err error
+
+		secToRecon = time.Duration(time.Second * 2) // start time for reconnect function
+		numOfRecon = 0
+	)
+
+	for {
+		c, err = initGdaxConn()
+		if err == nil {
+			gdax.conn = c
+			gdax.subscribe()
+			break
+		}
+
+		gdax.log.Errorf("reconnecting: %s", err)
+
+		ticker := time.NewTicker(secToRecon)
+		select {
+		case _ = <-ticker.C:
+			{
+				if secToRecon < backOffLimit {
+					randomAdd := secToRecon / 100 * (20 + time.Duration(r1.Int31n(10)))
+					gdax.log.Debugf("Random addition=%d", randomAdd/1000000)
+					secToRecon = secToRecon*2 + time.Duration(randomAdd)
+					gdax.log.Debugf("secToRecon=%d", secToRecon/1000000)
+
+					numOfRecon++
+				}
+				ticker = time.NewTicker(secToRecon)
+				continue
+			}
+		}
 	}
 }
 
@@ -158,11 +208,14 @@ func (poloniex *PoloniexAPI) subscribe() {
 }
 
 func (poloniex *PoloniexAPI) listen() {
+	//poloniex.log.Debugf("timeout=",poloniex.conn.)
 	for {
 		_, message, err := poloniex.conn.ReadMessage()
 		if err != nil {
 			poloniex.log.Errorf("Read message: %s", err.Error())
-			continue
+			// TODO: add reconnect
+			break
+			//continue
 		}
 
 		rateRaw := PoloniexSocketEvent{}

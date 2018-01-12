@@ -20,4 +20,5 @@ type Configuration struct {
 	BTCAPITest     client.BTCApiConf
 	Firebase       client.FirebaseConf
 	BTCSertificate string
+	NSQAddress     string
 }
