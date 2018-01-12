@@ -69,11 +69,13 @@ func Init(conf *Configuration) (*Multy, error) {
 func getCertificate(certFile string) string {
 	cert, err := ioutil.ReadFile(certFile)
 	if err != nil {
+		log.Errorf("get certificate: %s", err.Error())
 		return ""
 	}
 	if len(cert) > 1 {
 		return string(cert[:len(cert)-1])
 	}
+	log.Errorf("get certificate: empty certificate")
 	return ""
 }
 

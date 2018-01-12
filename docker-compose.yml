@@ -5,7 +5,7 @@ services:
     command: ["make", "all"]
     volumes:
       - ${pwd}/cmd/multy.config:/go/src/github.com/Appscrunch/Multy-back/cmd/multy.config
-      - ${pwd}/cmd/rpc.cert:/go/src/Appscrunch/Multy-back/cmd/rpc.cert
+      - ${pwd}/cmd/rpc.cert:/go/src/github.com/Appscrunch/Multy-back/cmd/rpc.cert
     ports:
       - "6678:6678"
       - "6680:6680"
