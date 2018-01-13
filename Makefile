@@ -8,6 +8,8 @@ LD_OPTS = -ldflags="-X main.branch=${BRANCH} -X main.commit=${COMMIT} -X main.bu
 
 all:  build run
 
+all-with-deps: setup deps build
+
 run:
 	cd cmd && ./$(NAME) && ../
 

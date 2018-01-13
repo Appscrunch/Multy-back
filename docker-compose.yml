@@ -4,8 +4,8 @@ services:
     image:  multyio/backend:1.0.0
     command: ["make", "all"]
     volumes:
-      - ${pwd}/cmd/multy.config:/go/src/github.com/Appscrunch/Multy-back/cmd/multy.config
-      - ${pwd}/cmd/rpc.cert:/go/src/github.com/Appscrunch/Multy-back/cmd/rpc.cert
+        - ${pwd}/cmd/multy.config:/go/src/github.com/Appscrunch/Multy-back/cmd/multy.config
+        - ${pwd}/cmd/rpc.cert:/go/src/github.com/Appscrunch/Multy-back/cmd/rpc.cert
     ports:
       - "6678:6678"
       - "6680:6680"
@@ -14,6 +14,7 @@ services:
       - nsqlookup
       - nsqadmin
       - mongodb
+      - bitcoin-cli
 
   nsqlookup:
     image: nsqio/nsq
@@ -53,3 +54,23 @@ services:
       # add logpath
     ports:
       - 27017:27017
+
+  bitcoind:
+    image: amacneil/bitcoin
+    command: bitcoind
+    healthcheck:
+      test: ["CMD", "/entrypoint.sh", "bitcoin-cli", "getinfo"]
+    ports:
+      - "18334:18334"
+    volumes:
+      - bitcoin-data:/data
+
+  bitcoin-cli:
+    image: amacneil/bitcoin
+    entrypoint: ["/entrypoint.sh", "bitcoin-cli"]
+    command: ""
+    depends_on:
+      - bitcoind
+
+volumes:
+    bitcoin-data:
