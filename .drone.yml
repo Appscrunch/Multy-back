@@ -1,6 +1,8 @@
 pipeline:
   build:
     image: golang:1.9.2
+    commands:
+      - make build
   publish:
     image: plugins/docker
     repo: multyio/backend:1.0.2
