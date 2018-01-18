@@ -2,8 +2,18 @@ pipeline:
   build:
     image: golang:1.9.2
     commands:
-      - make build  
+      - make build
+  publish:
+    image: plugins/docker
+    repo: multyio/backend:1.0.2
 branches: [ drone-test, master]
+
+deploy-staging:
+  image: rics3n/drone-ansible:2
+  inventory: staging
+  secrets: [ ssh_key ]
+  when:
+    branch: master
 
 notify:  
   email:
