@@ -1,0 +1,11 @@
+pipeline:
+  build:
+    image: golang:1.9.2
+    commands:
+      - make build  
+branches: [ drone-test, master]
+
+notify:  
+  email:
+    recipients:
+      - isitiriss@gmail.com
