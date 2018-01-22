@@ -8,7 +8,7 @@ pipeline:
     commands:
       - make build
 
-  publish-test:
+  publish-except-master:
     image: plugins/docker
     repo: multyio/backend
     tags: 
