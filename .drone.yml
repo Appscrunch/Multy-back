@@ -18,7 +18,7 @@ pipeline:
     when:
       branch: test
 
-    publish-test:
+  publish-master:
     image: plugins/docker
     repo: multyio/backend
     tags: 
