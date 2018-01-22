@@ -12,11 +12,19 @@ pipeline:
     image: plugins/docker
     repo: multyio/backend
     tags: 
-      - latest
-      - 1.0.7
+      - 1.0.6
     secrets: [ docker_username, docker_password ]
     when:
       branch: master
+
+    publish:
+    image: plugins/docker
+    repo: multyio/backend
+    tags:
+      - 1.0.7
+    secrets: [ docker_username, docker_password ]
+    when:
+      exclude: [ master/* ]
 
   ssh:
     image: appleboy/drone-ssh
