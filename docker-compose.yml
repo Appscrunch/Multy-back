@@ -1,7 +1,7 @@
 version: '3.4'
 services:
   multy-back:
-    image:  multyio/backend:1.0.1
+    image:  multyio/backend:latest
     command: ["make", "all"]
     env_file: .env
     volumes:

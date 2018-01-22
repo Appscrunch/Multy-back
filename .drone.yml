@@ -15,6 +15,8 @@ pipeline:
       - latest
       - 1.0.7
     secrets: [ docker_username, docker_password ]
+    when:
+      branch: master
 
   ssh:
     image: appleboy/drone-ssh
@@ -23,9 +25,22 @@ pipeline:
     secrets: [ ssh_password ]
     script:
       - cd /data2/home/multy/prod/
-      - docker stop multyio/backend nsq nsqlookup nsqadmin mongodb
-      - docker rm multyio/backend nsq nsqlookup nsqadmin mongodb 
-      - docker-compose up -d
+      - docker-compose -f docker-compose-prod.yml stop 
+      - docker-compose -f docker-compose-prod.yml up -d
+    when:
+      branch: master
+
+  ssh:
+    image: appleboy/drone-ssh
+    host: 88.198.47.112
+    username: multy
+    secrets: [ ssh_password ]
+    script:
+      - cd /data2/home/multy/dev
+      - docker-compose -f docker-compose-dev.yml stop 
+      - docker-compose -f docker-compose-dev.yml up -d
+    when:
+      exclude: [ master/* ]
  
   telegram:
     image: appleboy/drone-telegram
