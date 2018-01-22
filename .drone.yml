@@ -6,7 +6,7 @@ pipeline:
   build:
     image: golang:1.9.2
     commands:
-      - git branch 
+      - git checkout test2
       - make build
 
   publish-except-master:
