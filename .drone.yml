@@ -14,8 +14,6 @@ pipeline:
     tags: 
       - 1.0.7
     secrets: [ docker_username, docker_password ]
-    when:
-      branch: master
 
   ssh:
     image: appleboy/drone-ssh
