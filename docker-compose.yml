@@ -19,7 +19,7 @@ services:
       
   mongodb:
     container_name: "mongodb"
-    image: mongo:3.6
+    image: mongo:3.6.2
     env_file: .env
     command: mongod --smallfiles 
     environment:
