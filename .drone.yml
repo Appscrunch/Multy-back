@@ -8,7 +8,7 @@ pipeline:
     commands:
       - make build
 
-  publish:
+  publish-test:
     image: plugins/docker
     repo: multyio/backend
     tags: 
@@ -18,7 +18,16 @@ pipeline:
     when:
       branch: test
 
-  ssh:
+    publish-test:
+    image: plugins/docker
+    repo: multyio/backend
+    tags: 
+      - 1.0.8
+    secrets: [ docker_username, docker_password ]
+    when:
+      branch: master
+
+  ssh-master:
     image: appleboy/drone-ssh
     host: 88.198.47.112
     username: multy
@@ -30,7 +39,7 @@ pipeline:
     when:
       branch: master
 
-  ssh:
+  ssh-except-master:
     image: appleboy/drone-ssh
     host: 88.198.47.112
     username: multy
