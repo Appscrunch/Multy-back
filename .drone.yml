@@ -38,8 +38,7 @@ pipeline:
       - docker-compose -f docker-compose-prod.yml stop 
       - docker-compose -f docker-compose-prod.yml up -d
     when:
-      branch: 
-        exclude: master
+      branch: master
 
   ssh-except-master:
     image: appleboy/drone-ssh
