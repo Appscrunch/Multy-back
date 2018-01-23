@@ -50,6 +50,7 @@ func InitConnectedPool(server *gosocketio.Server, address, nsqAddr string, db st
 
 	nsqConsumerBTCTransaction, err := pool.newConsumerBTCTransaction(nsqAddr)
 	if err != nil {
+		pool.log.Errorf("New BTC transaction: NSQ initialization: %s", err.Error())
 		return nil, err
 	}
 	pool.nsqConsumerBTCTransaction = nsqConsumerBTCTransaction
@@ -58,6 +59,7 @@ func InitConnectedPool(server *gosocketio.Server, address, nsqAddr string, db st
 }
 
 func (sConnPool *SocketIOConnectedPool) newConsumerBTCTransaction(nsqAddr string) (*nsq.Consumer, error) {
+	sConnPool.log.Info("newConsumerBTCTransaction: init")
 	consumer, err := nsq.NewConsumer(btc.TopicTransaction, "socketio", nsq.NewConfig())
 	if err != nil {
 		return nil, err
@@ -83,6 +85,7 @@ func (sConnPool *SocketIOConnectedPool) newConsumerBTCTransaction(nsqAddr string
 }
 
 func (sConnPool *SocketIOConnectedPool) sendTransactionNotify(newTransactionWithUserID btc.BtcTransactionWithUserID) {
+	sConnPool.log.Debug("sendTransactionNotify")
 	sConnPool.m.Lock()
 	defer sConnPool.m.Unlock()
 
