@@ -66,7 +66,9 @@ func (sConnPool *SocketIOConnectedPool) newConsumerBTCTransaction(nsqAddr string
 	}
 
 	consumer.AddHandler(nsq.HandlerFunc(func(message *nsq.Message) error {
-		sConnPool.log.Debug("newConsumerBTCTransaction")
+		msgRaw := message.Body
+		sConnPool.log.Debugf("socketio new transaction notify: %+v", string(msgRaw))
+
 		var newTransactionWithUserID = btc.BtcTransactionWithUserID{}
 		if err := json.Unmarshal(message.Body, &newTransactionWithUserID); err != nil {
 			sConnPool.log.Errorf("topic btc transaction update: %s", err.Error())
