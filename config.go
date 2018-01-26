@@ -16,6 +16,7 @@ type Configuration struct {
 	Database       store.Conf
 	SocketioAddr   string
 	RestAddress    string
+	SSL            client.SSLConf
 	BTCAPIMain     client.BTCApiConf
 	BTCAPITest     client.BTCApiConf
 	Firebase       client.FirebaseConf

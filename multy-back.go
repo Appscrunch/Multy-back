@@ -116,6 +116,14 @@ func (multy *Multy) initRoutes(conf *Configuration) error {
 // Run runs service
 func (multy *Multy) Run() error {
 	log.Info("Running server")
-	multy.route.Run(multy.config.RestAddress)
+	if multy.config.SSL.Enabled {
+		log.Info("SSL REST client enabled")
+		err := multy.route.RunTLS(multy.config.RestAddress, multy.config.SSL.Key, multy.config.SSL.Crt)
+		if err != nil {
+			log.Fatalf("SSL REST client: %s", err.Error())
+		}
+	} else {
+		multy.route.Run(multy.config.RestAddress)
+	}
 	return nil
 }

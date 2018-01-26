@@ -48,6 +48,9 @@ var globalOpt = multy.Configuration{
 	},
 	NSQAddress:     "nsq:4150",
 	BTCNodeAddress: "localhost:18334",
+	SSL: client.SSLConf{
+		Enabled: false,
+	},
 }
 
 func main() {

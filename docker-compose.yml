@@ -2,13 +2,15 @@ version: '3.4'
 
 services:
   multy-back:
-    image:  multyio/backend:1.0.1
+    image: multyio/backend:1.0.1
     command: ["make", "all"]
     env_file: .env
     volumes:
         - "${BACKEND_LOGS}:/go/src/github.com/Appscrunch/Multy-back/cmd/logs"
         - "${BACKEND_CONF}:/go/src/github.com/Appscrunch/Multy-back/cmd/multy.config"
         - "${BTCD_CERT}:/go/src/github.com/Appscrunch/Multy-back/cmd/rpc.cert"
+        - "${SSL_KEY}:/go/src/github.com/Appscrunch/Multy-back/cmd/key.pem"
+        - "${SSL_CERT}:/go/src/github.com/Appscrunch/Multy-back/cmd/certificate.pem"
     ports:
       - "7778:7778"
       - "7780:7780"

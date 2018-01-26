@@ -50,6 +50,13 @@ const (
 	msgErrChainIsNotImplemented = "current chain is not implemented"
 )
 
+// Configuration for SSL connection
+type SSLConf struct {
+	Enabled bool
+	Key     string
+	Crt     string
+}
+
 type RestClient struct {
 	middlewareJWT *GinJWTMiddleware
 	userStore     store.UserStore

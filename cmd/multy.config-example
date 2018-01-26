@@ -12,6 +12,11 @@
     "BTCNodeAddress": "localhost:18334",
     "RestAddress": "localhost:7778",
     "SocketioAddr": "localhost:7780",
+    "SSL": {
+        "Enabled": false,
+        "Key": "",
+        "Crt": ""
+    },
     "BTCAPITest": {
         "Token": "test-token",
         "Coin": "btc",

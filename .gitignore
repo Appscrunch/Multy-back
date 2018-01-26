@@ -6,6 +6,7 @@ cmd/back-*
 cmd/logs
 cmd/rpc.cert
 
+ssl/
 rpc.cert
 data-db
 
