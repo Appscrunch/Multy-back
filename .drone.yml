@@ -64,7 +64,7 @@ pipeline:
       - docker pull multyio/multyback-testing:latest
       - docker run multyio/multyback-testing
     when:
-      branch: drone
+      branch: test2
  
   telegram:
     image: appleboy/drone-telegram
