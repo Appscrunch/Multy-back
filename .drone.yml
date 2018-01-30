@@ -6,7 +6,6 @@ pipeline:
   build:
     image: golang:1.9.2
     commands:
-      - git branch
       - make build
 
   publish-master:
@@ -29,6 +28,10 @@ pipeline:
       - docker-compose -f docker-compose-prod.yml stop
       - docker pull multyio/backend:master
       - docker-compose -f docker-compose-prod.yml up -d
+
+      # run test docker image 
+      - docker pull multyio/multyback-testing:latest
+      - docker run multyio/multyback-testing
     when:
       branch: master
 
@@ -56,8 +59,12 @@ pipeline:
       - if [ -d logs ]; then mv logs logs_$now; fi
       - cd ../
       - docker-compose -f docker-compose-test.yml up -d
+
+      # run test docker image 
+      - docker pull multyio/multyback-testing:latest
+      - docker run multyio/multyback-testing
     when:
-      branch: test2
+      branch: drone
  
   telegram:
     image: appleboy/drone-telegram

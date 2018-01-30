@@ -15,6 +15,7 @@ run:
 
 setup:
 	go get -u github.com/kardianos/govendor
+	go get github.com/satori/go.uuid 
 
 deps:
 	govendor sync
