@@ -40,7 +40,7 @@ pipeline:
       - 1.0.9
     secrets: [ docker_username, docker_password ]
     when: 
-      branch: test2
+      branch: ssl
 
   ssh-test:
     image: appleboy/drone-ssh
@@ -57,7 +57,7 @@ pipeline:
       - cd ../
       - docker-compose -f docker-compose-test.yml up -d
     when:
-      branch: test2
+      branch: ssl
  
   telegram:
     image: appleboy/drone-telegram
