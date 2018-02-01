@@ -51,7 +51,13 @@ func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
 	}, nil
 }
 
-func SetSocketIOHandlers(r *gin.RouterGroup, address, nsqAddr string, ratesDB store.UserStore) (*SocketIOConnectedPool, error) {
+func SetSocketIOHandlers(
+	r *gin.RouterGroup,
+	address,
+	nsqAddr string,
+	ratesDB store.UserStore,
+	sslConf *SSLConf,
+) (*SocketIOConnectedPool, error) {
 	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
 
 	pool, err := InitConnectedPool(server, address, nsqAddr, ratesDB)
@@ -111,7 +117,11 @@ func SetSocketIOHandlers(r *gin.RouterGroup, address, nsqAddr string, ratesDB st
 
 	pool.log.Infof("Starting socketIO server on %s address", address)
 	go func() {
-		pool.log.Panicf("%s", http.ListenAndServe(address, serveMux))
+		if sslConf.Enabled {
+			pool.log.Panicf("%s", http.ListenAndServeTLS(address, sslConf.Crt, sslConf.Key, serveMux))
+		} else {
+			pool.log.Panicf("%s", http.ListenAndServe(address, serveMux))
+		}
 	}()
 	return pool, nil
 }

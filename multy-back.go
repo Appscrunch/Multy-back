@@ -86,7 +86,13 @@ func (multy *Multy) initRoutes(conf *Configuration) error {
 	gin.SetMode(gin.DebugMode)
 
 	socketIORoute := router.Group("/socketio")
-	socketIOPool, err := client.SetSocketIOHandlers(socketIORoute, conf.SocketioAddr, conf.NSQAddress, multy.userStore)
+	socketIOPool, err := client.SetSocketIOHandlers(
+		socketIORoute,
+		conf.SocketioAddr,
+		conf.NSQAddress,
+		multy.userStore,
+		&conf.SSL,
+	)
 	if err != nil {
 		return err
 	}
