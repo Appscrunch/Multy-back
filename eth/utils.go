@@ -1,9 +1,10 @@
+package eth
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package eth
 
 import (
 	"encoding/json"
@@ -15,7 +16,6 @@ import (
 	ethpb "github.com/Appscrunch/Multy-back/node-streamer/eth"
 	"github.com/Appscrunch/Multy-back/store"
 	nsq "github.com/bitly/go-nsq"
-	_ "github.com/jekabolt/slflog"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -33,12 +33,12 @@ var (
 	spentOutputsTest     *mgo.Collection
 )
 
-//TODO: make an update
-func updateWalletAndAddressDate(tx store.MultyTX, networkID int) error {
-	//TODO: make an update
+// TODO: make an update
+func updateWalletAndAddressDate(tx store.MultyTx, networkID int) error {
+	// TODO: make an update
 	for _, walletOutput := range tx.WalletsOutput {
-		// update addresses last action time
-		sel := bson.M{"userID": walletOutput.UserId, "wallets.addresses.address": walletOutput.Address.Address}
+		// Update addresses last action time
+		sel := bson.M{"userID": walletOutput.UserID, "wallets.addresses.address": walletOutput.Address.Address}
 		update := bson.M{
 			"$set": bson.M{
 				"wallets.$.addresses.$[].lastActionTime": time.Now().Unix(),
@@ -49,17 +49,17 @@ func updateWalletAndAddressDate(tx store.MultyTX, networkID int) error {
 			return errors.New("updateWalletAndAddressDate:usersData.Update: " + err.Error())
 		}
 
-		//TODO: fix "wallets.$.status":store.WalletStatusOK,
-		// update wallets last action time
+		// TODO: fix "wallets.$.status":store.WalletStatusOK,
+		// Update wallets last action time
 		// Set status to OK if some money transfered to this address
 		user := store.User{}
-		sel = bson.M{"userID": walletOutput.UserId, "wallets.walletIndex": walletOutput.WalletIndex, "wallets.addresses.address": walletOutput.Address.Address, "wallets.networkID": networkID, "wallets.currencyID": currencies.Bitcoin}
+		sel = bson.M{"userID": walletOutput.UserID, "wallets.walletIndex": walletOutput.WalletIndex, "wallets.addresses.address": walletOutput.Address.Address, "wallets.networkID": networkID, "wallets.currencyID": currencies.Bitcoin}
 		err = usersData.Find(sel).One(&user)
 		if err != nil {
 			return errors.New("updateWalletAndAddressDate:usersData.Update: " + err.Error())
 		}
 
-		//TODO: fix hardcode if wallet.NetworkID == networkID && walletOutput.WalletIndex == walletindex && currencies.Bitcoin == currencyID {
+		// TODO: fix hardcode if wallet.NetworkID == networkID && walletOutput.WalletIndex == walletindex && currencies.Bitcoin == currencyID {
 		var flag bool
 		var position int
 		for i, wallet := range user.Wallets {
@@ -87,8 +87,8 @@ func updateWalletAndAddressDate(tx store.MultyTX, networkID int) error {
 	}
 
 	for _, walletInput := range tx.WalletsInput {
-		// update addresses last action time
-		sel := bson.M{"userID": walletInput.UserId, "wallets.addresses.address": walletInput.Address.Address}
+		// Update addresses last action time
+		sel := bson.M{"userID": walletInput.UserID, "wallets.addresses.address": walletInput.Address.Address}
 		update := bson.M{
 			"$set": bson.M{
 				"wallets.$.addresses.$[].lastActionTime": time.Now().Unix(),
@@ -99,8 +99,8 @@ func updateWalletAndAddressDate(tx store.MultyTX, networkID int) error {
 			return errors.New("updateWalletAndAddressDate:usersData.Update: " + err.Error())
 		}
 
-		// update wallets last action time
-		sel = bson.M{"userID": walletInput.UserId, "wallets.walletIndex": walletInput.WalletIndex, "wallets.addresses.address": walletInput.Address.Address}
+		// Update wallets last action time
+		sel = bson.M{"userID": walletInput.UserID, "wallets.walletIndex": walletInput.WalletIndex, "wallets.addresses.address": walletInput.Address.Address}
 		update = bson.M{
 			"$set": bson.M{
 				"wallets.$.lastActionTime": time.Now().Unix(),
@@ -115,6 +115,7 @@ func updateWalletAndAddressDate(tx store.MultyTX, networkID int) error {
 	return nil
 }
 
+// GetReSyncExchangeRate is a method for resyncing exchange rates
 func GetReSyncExchangeRate(time int64) ([]store.ExchangeRatesRecord, error) {
 	selCCCAGG := bson.M{
 		"stockexchange": "CCCAGG",
@@ -125,6 +126,7 @@ func GetReSyncExchangeRate(time int64) ([]store.ExchangeRatesRecord, error) {
 	return []store.ExchangeRatesRecord{stocksCCCAGG}, err
 }
 
+// GetLatestExchangeRate is a method for getting latest exchange rates
 func GetLatestExchangeRate() ([]store.ExchangeRatesRecord, error) {
 	selGdax := bson.M{
 		"stockexchange": "Gdax",
@@ -146,6 +148,7 @@ func GetLatestExchangeRate() ([]store.ExchangeRatesRecord, error) {
 	return []store.ExchangeRatesRecord{stocksPoloniex, stocksGdax}, nil
 }
 
+// setExchangeRates is a method for setting exchange rates
 func setExchangeRates(tx *store.TransactionETH, isReSync bool, TxTime int64) {
 	var err error
 	if isReSync {
@@ -165,9 +168,9 @@ func setExchangeRates(tx *store.TransactionETH, isReSync bool, TxTime int64) {
 	}
 }
 
+// sendNotifyToClients is a method for sending notifications to clients
 func sendNotifyToClients(tx store.TransactionETH, nsqProducer *nsq.Producer, netid int) {
-	//TODO: make correct notify
-
+	// TODO: make correct notify
 	if tx.Status == store.TxStatusAppearedInBlockIncoming || tx.Status == store.TxStatusAppearedInMempoolIncoming || tx.Status == store.TxStatusInBlockConfirmedIncoming {
 		txMsq := store.TransactionWithUserID{
 			UserID: tx.UserID,
@@ -199,6 +202,7 @@ func sendNotifyToClients(tx store.TransactionETH, nsqProducer *nsq.Producer, net
 	}
 }
 
+// sendNotify is a main method for sending notifications
 func sendNotify(txMsq *store.TransactionWithUserID, nsqProducer *nsq.Producer) {
 	newTxJSON, err := json.Marshal(txMsq)
 	if err != nil {
@@ -251,19 +255,19 @@ func saveTransaction(tx store.TransactionETH, networtkID int, resync bool) error
 	// txStore.Find(query).All(&fetchedTxs)
 
 	// This is splited transaction! That means that transaction's WalletsInputs and WalletsOutput have the same WalletIndex!
-	//Here we have outgoing transaction for exact wallet!
+	// Here we have outgoing transaction for exact wallet!
 	multyTX := store.TransactionETH{}
 	if tx.Status == store.TxStatusAppearedInBlockIncoming || tx.Status == store.TxStatusAppearedInMempoolIncoming || tx.Status == store.TxStatusInBlockConfirmedIncoming {
 		log.Debugf("saveTransaction new incoming tx to %v", tx.To)
 		sel := bson.M{"userid": tx.UserID, "hash": tx.Hash, "walletindex": tx.WalletIndex}
 		err := txStore.Find(sel).One(&multyTX)
 		if err == mgo.ErrNotFound {
-			// initial insertion
+			// Initial insertion
 			err := txStore.Insert(tx)
 			return err
 		}
 		if err != nil && err != mgo.ErrNotFound {
-			// database error
+			// Database error
 			return err
 		}
 
@@ -281,12 +285,12 @@ func saveTransaction(tx store.TransactionETH, networtkID int, resync bool) error
 		sel := bson.M{"userid": tx.UserID, "hash": tx.Hash, "walletindex": tx.WalletIndex}
 		err := txStore.Find(sel).One(&multyTX)
 		if err == mgo.ErrNotFound {
-			// initial insertion
+			// Initial insertion
 			err := txStore.Insert(tx)
 			return err
 		}
 		if err != nil && err != mgo.ErrNotFound {
-			// database error
+			// Database error
 			return err
 		}
 

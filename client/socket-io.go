@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"fmt"
@@ -17,28 +18,26 @@ import (
 	"github.com/graarh/golang-socketio"
 )
 
+// Just constants
 const (
-	socketIOOutMsg = "outcoming"
-	socketIOInMsg  = "incoming"
-
-	deviceTypeMac     = "mac"
-	deviceTypeAndroid = "android"
-
+	socketIOOutMsg        = "outcoming"
+	socketIOInMsg         = "incoming"
+	deviceTypeMac         = "mac"
+	deviceTypeAndroid     = "android"
 	topicExchangeDay      = "exchangeDay"
 	topicExchangeGdax     = "exchangeGdax"
 	topicExchangePoloniex = "exchangePoloniex"
 )
 
+// Just constants
 const (
 	PORT         = ":5555"
 	WirelessRoom = "wireless"
-
-	ReceiverOn = "event:receiver:on"
-	SenderOn   = "event:sender:on"
-
-	NewReceiver = "event:new:receiver"
-	Pay         = "event:pay"
-	PaymentSend = "event:payment:send"
+	ReceiverOn   = "event:receiver:on"
+	SenderOn     = "event:sender:on"
+	NewReceiver  = "event:new:receiver"
+	Pay          = "event:pay"
+	PaymentSend  = "event:payment:send"
 )
 
 func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
@@ -64,6 +63,7 @@ func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
 	}, nil
 }
 
+// SetSocketIOHandlers sets socketIO handlers
 func SetSocketIOHandlers(r *gin.RouterGroup, address, nsqAddr string, ratesDB store.UserStore) (*SocketIOConnectedPool, error) {
 	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
 
@@ -115,7 +115,7 @@ func SetSocketIOHandlers(r *gin.RouterGroup, address, nsqAddr string, ratesDB st
 		pool.log.Debugf("OnConnection done")
 	})
 
-	//TODO: feature logic
+	// TODO: feature logic
 
 	server.On(gosocketio.OnError, func(c *gosocketio.Channel) {
 		pool.log.Errorf("Error occurs %s", c.Id())

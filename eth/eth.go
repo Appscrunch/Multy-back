@@ -1,9 +1,10 @@
+package eth
+
 /*
 Copyright 2019 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package eth
 
 import (
 	"fmt"
@@ -19,8 +20,8 @@ import (
 	"github.com/jekabolt/slf"
 )
 
-// ETHConn is a main struct of package
-type ETHConn struct {
+// Conn is a main struct of package
+type Conn struct {
 	NsqProducer      *nsq.Producer // a producer for sending data to clients
 	CliTest          pb.NodeCommuunicationsClient
 	CliMain          pb.NodeCommuunicationsClient
@@ -35,11 +36,11 @@ type ETHConn struct {
 
 var log = slf.WithContext("eth")
 
-//InitHandlers init nsq mongo and ws connection to node
-// return main client , test client , err
-func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string) (*ETHConn, error) {
+// InitHandlers init nsq mongo and ws connection to node
+// returns main client, test client, err
+func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string) (*Conn, error) {
 	//declare pacakge struct
-	cli := &ETHConn{
+	cli := &Conn{
 		Mempool:     &map[string]int{},
 		MempoolTest: &map[string]int{},
 		M:           &sync.Mutex{},
@@ -73,16 +74,16 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 	}
 	log.Infof("InitHandlers: mgo.Dial: √")
 
-	usersData = db.DB(dbConf.DBUsers).C(store.TableUsers) // all db tables
+	usersData = db.DB(dbConf.DBUsers).C(store.TableUsers) // All db tables
 	exRate = db.DB(dbConf.DBStockExchangeRate).C("TableStockExchangeRate")
 
-	// main
+	// Main
 	txsData = db.DB(dbConf.DBTx).C(dbConf.TableTxsDataETHMain)
 
-	// test
+	// Test
 	txsDataTest = db.DB(dbConf.DBTx).C(dbConf.TableTxsDataETHTest)
 
-	// setup main net
+	// Setup main net
 	urlMain, err := fethCoinType(coinTypes, currencies.Ether, currencies.ETHMain)
 	if err != nil {
 		return cli, fmt.Errorf("fethCoinType: %s", err.Error())
@@ -97,7 +98,7 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 	cli.CliMain = cliMain
 	log.Infof("InitHandlers: initGrpcClient: Main: √")
 
-	// setup testnet
+	// Setup testnet
 	urlTest, err := fethCoinType(coinTypes, currencies.Ether, currencies.ETHTest)
 	if err != nil {
 		return cli, fmt.Errorf("fethCoinType: %s", err.Error())
@@ -121,7 +122,7 @@ func initGrpcClient(url string) (pb.NodeCommuunicationsClient, error) {
 		return nil, err
 	}
 
-	// Create a new  client
+	// Create a new client
 	client := pb.NewNodeCommuunicationsClient(conn)
 	return client, nil
 }
@@ -135,7 +136,7 @@ func fethCoinType(coinTypes []store.CoinType, currencyID, networkID int) (string
 	return "", fmt.Errorf("fethCoinType: no such coin in config")
 }
 
-// BtcTransaction stuct for ws notifications
+// Transaction stuct for ws notifications
 type Transaction struct {
 	TransactionType int    `json:"transactionType"`
 	Amount          string `json:"amount"`
@@ -143,7 +144,7 @@ type Transaction struct {
 	Address         string `json:"address"`
 }
 
-// BtcTransactionWithUserID sub-stuct for ws notifications
+// TransactionWithUserID sub-stuct for ws notifications
 type TransactionWithUserID struct {
 	NotificationMsg *Transaction
 	UserID          string

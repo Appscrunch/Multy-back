@@ -1,9 +1,10 @@
+package btc
+
 /*
 Copyright 2019 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package btc
 
 import (
 	"fmt"
@@ -19,33 +20,30 @@ import (
 	"github.com/jekabolt/slf"
 )
 
-// BTCConn is a main struct of package
-type BTCConn struct {
-	NsqProducer      *nsq.Producer // a producer for sending data to clients
+// Conn is a main struct of package
+type Conn struct {
+	NsqProducer      *nsq.Producer // A producer for sending data to clients
 	CliTest          pb.NodeCommuunicationsClient
 	CliMain          pb.NodeCommuunicationsClient
 	WatchAddressTest chan pb.WatchAddress
 	WatchAddressMain chan pb.WatchAddress
-
-	BtcMempool     *map[string]int
-	BtcMempoolTest *map[string]int
-
-	Resync  *map[string]bool
-	ResyncM *sync.Mutex
-
-	M     *sync.Mutex
-	MTest *sync.Mutex
+	BTCMempool       *map[string]int
+	BTCMempoolTest   *map[string]int
+	Resync           *map[string]bool
+	ResyncM          *sync.Mutex
+	M                *sync.Mutex
+	MTest            *sync.Mutex
 }
 
 var log = slf.WithContext("btc")
 
-//InitHandlers init nsq mongo and ws connection to node
+// InitHandlers init nsq mongo and ws connection to node
 // return main client , test client , err
-func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string) (*BTCConn, error) {
-	//declare pacakge struct
-	cli := &BTCConn{
-		BtcMempool:     &map[string]int{},
-		BtcMempoolTest: &map[string]int{},
+func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string) (*Conn, error) {
+	// Declare pacakge struct
+	cli := &Conn{
+		BTCMempool:     &map[string]int{},
+		BTCMempoolTest: &map[string]int{},
 		Resync:         &map[string]bool{},
 		ResyncM:        &sync.Mutex{},
 		M:              &sync.Mutex{},
@@ -82,20 +80,20 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 	}
 	log.Infof("InitHandlers: mgo.Dial: √")
 
-	usersData = db.DB(dbConf.DBUsers).C(store.TableUsers) // all db tables
+	usersData = db.DB(dbConf.DBUsers).C(store.TableUsers) // All db tables
 	exRate = db.DB(dbConf.DBStockExchangeRate).C("TableStockExchangeRate")
 
-	// main
+	// Main
 	txsData = db.DB(dbConf.DBTx).C(dbConf.TableTxsDataBTCMain)
 	spendableOutputs = db.DB(dbConf.DBTx).C(dbConf.TableSpendableOutputsBTCMain)
 	spentOutputs = db.DB(dbConf.DBTx).C(dbConf.TableSpentOutputsBTCMain)
 
-	// test
+	// Test
 	txsDataTest = db.DB(dbConf.DBTx).C(dbConf.TableTxsDataBTCTest)
 	spendableOutputsTest = db.DB(dbConf.DBTx).C(dbConf.TableSpendableOutputsBTCTest)
 	spentOutputsTest = db.DB(dbConf.DBTx).C(dbConf.TableSpentOutputsBTCTest)
 
-	// setup main net
+	// Setup main net
 	urlMain, err := fethCoinType(coinTypes, currencies.Bitcoin, currencies.Main)
 	if err != nil {
 		return cli, fmt.Errorf("fethCoinType: %s", err.Error())
@@ -106,12 +104,12 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 		return cli, fmt.Errorf("initGrpcClient: %s", err.Error())
 	}
 
-	setGRPCHandlers(cliMain, cli.NsqProducer, currencies.Main, cli.WatchAddressMain, cli.BtcMempool, cli.M, cli.Resync, cli.ResyncM)
+	setGRPCHandlers(cliMain, cli.NsqProducer, currencies.Main, cli.WatchAddressMain, cli.BTCMempool, cli.M, cli.Resync, cli.ResyncM)
 
 	cli.CliMain = cliMain
 	log.Infof("InitHandlers: initGrpcClient: Main: √")
 
-	// setup testnet
+	// Setup testnet
 	urlTest, err := fethCoinType(coinTypes, currencies.Bitcoin, currencies.Test)
 	if err != nil {
 		return cli, fmt.Errorf("fethCoinType: %s", err.Error())
@@ -120,7 +118,7 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 	if err != nil {
 		return cli, fmt.Errorf("initGrpcClient: %s", err.Error())
 	}
-	setGRPCHandlers(cliTest, cli.NsqProducer, currencies.Test, cli.WatchAddressTest, cli.BtcMempoolTest, cli.MTest, cli.Resync, cli.ResyncM)
+	setGRPCHandlers(cliTest, cli.NsqProducer, currencies.Test, cli.WatchAddressTest, cli.BTCMempoolTest, cli.MTest, cli.Resync, cli.ResyncM)
 
 	cli.CliTest = cliTest
 	log.Infof("InitHandlers: initGrpcClient: Test: √")

@@ -1,9 +1,10 @@
+package multyback
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package multyback
 
 import (
 	"context"
@@ -30,6 +31,7 @@ const (
 	version              = "v1"
 )
 
+// Event constants
 const (
 	EventConnection    = "connection"
 	EventInitialAdd    = "allUsers"
@@ -41,17 +43,14 @@ const (
 
 // Multy is a main struct of service
 type Multy struct {
-	config     *Configuration
-	clientPool *client.SocketIOConnectedPool
-	route      *gin.Engine
-
-	userStore store.UserStore
-
+	config         *Configuration
+	clientPool     *client.SocketIOConnectedPool
+	route          *gin.Engine
+	userStore      store.UserStore
 	restClient     *client.RestClient
 	firebaseClient *client.FirebaseClient
-
-	BTC *btc.BTCConn
-	ETH *eth.ETHConn
+	BTC            *btc.Conn
+	ETH            *eth.Conn
 }
 
 // Init initializes Multy instance
@@ -59,7 +58,6 @@ func Init(conf *Configuration) (*Multy, error) {
 	multy := &Multy{
 		config: conf,
 	}
-
 	// DB initialization
 	userStore, err := store.InitUserStore(conf.Database)
 	if err != nil {
@@ -68,11 +66,11 @@ func Init(conf *Configuration) (*Multy, error) {
 	multy.userStore = userStore
 	log.Infof("UserStore initialization done on %s √", conf.Database)
 
-	// exchange rates
+	// Exchange rates
 	// exchange := &exchanger.Exchanger{}
 	// exchange.InitExchanger(conf.ExchangerConfiguration)
 
-	//BTC
+	// BTC
 	btcCli, err := btc.InitHandlers(&conf.Database, conf.SupportedNodes, conf.NSQAddress)
 	if err != nil {
 		return nil, fmt.Errorf("Init: btc.InitHandlers: %s", err.Error())
@@ -90,7 +88,7 @@ func Init(conf *Configuration) (*Multy, error) {
 	multy.ETH = ethCli
 	log.Infof(" ETH initialization done on %v √", ethVer)
 
-	//users data set
+	// Users data set
 	sv, err := multy.SetUserData(multy.userStore, conf.SupportedNodes)
 	if err != nil {
 		return nil, fmt.Errorf("Init: multy.SetUserData: %s", err.Error())
@@ -100,14 +98,14 @@ func Init(conf *Configuration) (*Multy, error) {
 	log.Debugf("Server versions %v", sv)
 
 	// REST handlers
-	if err = multy.initHttpRoutes(conf); err != nil {
+	if err = multy.initHTTPRoutes(conf); err != nil {
 		return nil, fmt.Errorf("Router initialization: %s", err.Error())
 	}
 	return multy, nil
 }
 
 // SetUserData make initial userdata to node service
-func (m *Multy) SetUserData(userStore store.UserStore, ct []store.CoinType) ([]store.ServiceInfo, error) {
+func (multy *Multy) SetUserData(userStore store.UserStore, ct []store.CoinType) ([]store.ServiceInfo, error) {
 	servicesInfo := []store.ServiceInfo{}
 	for _, conCred := range ct {
 		usersData, err := userStore.FindUserDataChain(conCred.СurrencyID, conCred.NetworkID)
@@ -123,9 +121,9 @@ func (m *Multy) SetUserData(userStore store.UserStore, ct []store.CoinType) ([]s
 			var cli btcpb.NodeCommuunicationsClient
 			switch conCred.NetworkID {
 			case currencies.Main:
-				cli = m.BTC.CliMain
+				cli = multy.BTC.CliMain
 			case currencies.Test:
-				cli = m.BTC.CliTest
+				cli = multy.BTC.CliTest
 			default:
 				log.Errorf("setGRPCHandlers: wrong networkID:")
 			}
@@ -160,9 +158,9 @@ func (m *Multy) SetUserData(userStore store.UserStore, ct []store.CoinType) ([]s
 			var cli ethpb.NodeCommuunicationsClient
 			switch conCred.NetworkID {
 			case currencies.ETHMain:
-				cli = m.ETH.CliMain
+				cli = multy.ETH.CliMain
 			case currencies.ETHTest:
-				cli = m.ETH.CliTest
+				cli = multy.ETH.CliTest
 			default:
 				log.Errorf("setGRPCHandlers: wrong networkID:")
 			}
@@ -200,11 +198,11 @@ func (m *Multy) SetUserData(userStore store.UserStore, ct []store.CoinType) ([]s
 	return nil, nil
 }
 
-// initRoutes initialize client communication services
+// initHTTPRoutes initialize client communication services
 // - http
 // - socketio
 // - firebase
-func (multy *Multy) initHttpRoutes(conf *Configuration) error {
+func (multy *Multy) initHTTPRoutes(conf *Configuration) error {
 	router := gin.Default()
 	multy.route = router
 

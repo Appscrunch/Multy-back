@@ -1,10 +1,12 @@
+package currencies
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package currencies
 
+// Constants for currencies
 const (
 	Bitcoin                = 0
 	Testnet                = 1
@@ -190,6 +192,7 @@ const (
 	RootstockTestnet       = 37310
 )
 
+// CurrencyNames is a variable contains all the names of currencies
 var CurrencyNames = map[int]string{
 	Bitcoin:               "Bitcoin",
 	Testnet:               "Testnet",

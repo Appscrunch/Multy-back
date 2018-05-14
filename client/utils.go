@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"encoding/json"
@@ -11,9 +12,9 @@ import (
 	"time"
 
 	"github.com/Appscrunch/Multy-back/store"
-	"github.com/jekabolt/slf"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/jekabolt/slf"
 )
 
 func decodeBody(c *gin.Context, to interface{}) error {
@@ -52,7 +53,7 @@ func createWallet(currencyID, networkID int, address string, addressIndex int, w
 		LastActionTime: time.Now().Unix(),
 		DateOfCreation: time.Now().Unix(),
 		Status:         store.WalletStatusOK,
-		Adresses: []store.Address{
+		Addresses: []store.Address{
 			store.Address{
 				Address:        address,
 				AddressIndex:   addressIndex,
@@ -66,7 +67,7 @@ func createWallet(currencyID, networkID int, address string, addressIndex int, w
 func newEmptyTx(userID string) store.TxRecord {
 	return store.TxRecord{
 		UserID:       userID,
-		Transactions: []store.MultyTX{},
+		Transactions: []store.MultyTx{},
 	}
 }
 
