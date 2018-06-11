@@ -1,9 +1,10 @@
+package store
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package store
 
 import (
 	"errors"
@@ -58,6 +59,7 @@ type Conf struct {
 	Password string
 }
 
+// UserStore is an interface for interacing with users
 type UserStore interface {
 	GetUserByDevice(device bson.M, user *User)
 	Update(sel, update bson.M) error
@@ -72,9 +74,9 @@ type UserStore interface {
 	InsertExchangeRate(ExchangeRates, string) error
 	GetExchangeRatesDay() ([]RatesAPIBitstamp, error)
 
-	//TODo update this method by eth
-	GetAllWalletTransactions(userid string, currencyID, networkID int, walletTxs *[]MultyTX) error
-	GetAllWalletEthTransactions(userid string, currencyID, networkID int, walletTxs *[]TransactionETH) error
+	// TODO: update this method by ETH
+	GetAllWalletTransactions(userid string, currencyID, networkID int, walletTxs *[]MultyTx) error
+	GetAllWalletETHTransactions(userid string, currencyID, networkID int, walletTxs *[]TransactionETH) error
 	// GetAllSpendableOutputs(query bson.M) (error, []SpendableOutputs)
 	GetAddressSpendableOutputs(address string, currencyID, networkID int) ([]SpendableOutputs, error)
 	DeleteWallet(userid string, walletindex, currencyID, networkID int) error
@@ -84,24 +86,25 @@ type UserStore interface {
 	FindUserDataChain(CurrencyID, NetworkID int) (map[string]AddressExtended, error)
 }
 
+// MongoUserStore is the way user's data are stored
 type MongoUserStore struct {
 	config    *Conf
 	session   *mgo.Session
 	usersData *mgo.Collection
 
-	// btc main
+	// BTC main
 	BTCMainTxsData          *mgo.Collection
 	BTCMainSpendableOutputs *mgo.Collection
 
-	// btc test
+	// BTC test
 	BTCTestTxsData          *mgo.Collection
 	BTCTestSpendableOutputs *mgo.Collection
 
-	//eth main
+	// ETH main
 	ETHMainRatesData *mgo.Collection
 	ETHMainTxsData   *mgo.Collection
 
-	//eth test
+	// ETH test
 	ETHTestRatesData *mgo.Collection
 	ETHTestTxsData   *mgo.Collection
 
@@ -110,6 +113,7 @@ type MongoUserStore struct {
 	ETHTest           *mgo.Collection
 }
 
+// InitUserStore is a method for initializing user storage
 func InitUserStore(conf Conf) (UserStore, error) {
 	uStore := &MongoUserStore{
 		config: &conf,
@@ -151,6 +155,7 @@ func InitUserStore(conf Conf) (UserStore, error) {
 	return uStore, nil
 }
 
+// FindUserDataChain is a method for finding user's storage by CurrencyID and NetworkID
 func (mStore *MongoUserStore) FindUserDataChain(CurrencyID, NetworkID int) (map[string]AddressExtended, error) {
 	users := []User{}
 	usersData := map[string]AddressExtended{} // addres -> userid
@@ -161,7 +166,7 @@ func (mStore *MongoUserStore) FindUserDataChain(CurrencyID, NetworkID int) (map[
 	for _, user := range users {
 		for _, wallet := range user.Wallets {
 			if wallet.CurrencyID == CurrencyID && wallet.NetworkID == NetworkID {
-				for _, address := range wallet.Adresses {
+				for _, address := range wallet.Addresses {
 					usersData[address.Address] = AddressExtended{
 						UserID:       user.UserID,
 						WalletIndex:  wallet.WalletIndex,
@@ -174,16 +179,20 @@ func (mStore *MongoUserStore) FindUserDataChain(CurrencyID, NetworkID int) (map[
 	return usersData, nil
 }
 
+// FindAllUserETHTransactions is a method for finding all the ETH transactions
 func (mStore *MongoUserStore) FindAllUserETHTransactions(sel bson.M) ([]TransactionETH, error) {
 	allTxs := []TransactionETH{}
 	err := mStore.ethTxHistory.Find(sel).All(&allTxs)
 	return allTxs, err
 }
+
+// FindETHTransaction is a method for finding an ETH transaction
 func (mStore *MongoUserStore) FindETHTransaction(sel bson.M) error {
 	err := mStore.ethTxHistory.Find(sel).One(nil)
 	return err
 }
 
+// DeleteWallet is a method for removing wallet
 func (mStore *MongoUserStore) DeleteWallet(userid string, walletindex, currencyID, networkID int) error {
 	user := User{}
 	sel := bson.M{"userID": userid, "wallets.networkID": networkID, "wallets.currencyID": currencyID, "wallets.walletIndex": walletindex}
@@ -213,6 +222,8 @@ func (mStore *MongoUserStore) DeleteWallet(userid string, walletindex, currencyI
 // 	err := mStore.spendableOutputs.Find(query).All(&spOuts)
 // 	return err, spOuts
 // }
+
+// GetAddressSpendableOutputs returns address spendable outputs
 func (mStore *MongoUserStore) GetAddressSpendableOutputs(address string, currencyID, networkID int) ([]SpendableOutputs, error) {
 	spOuts := []SpendableOutputs{}
 	var err error
@@ -239,34 +250,43 @@ func (mStore *MongoUserStore) GetAddressSpendableOutputs(address string, currenc
 	return spOuts, err
 }
 
+// UpdateUser updates user data
 func (mStore *MongoUserStore) UpdateUser(sel bson.M, user *User) error {
 	return mStore.usersData.Update(sel, user)
 }
 
+// GetUserByDevice returns the user by its device name
 func (mStore *MongoUserStore) GetUserByDevice(device bson.M, user *User) { // rename GetUserByToken
 	mStore.usersData.Find(device).One(user)
 	return // why?
 }
 
+// Update updates selected fields
 func (mStore *MongoUserStore) Update(sel, update bson.M) error {
 	return mStore.usersData.Update(sel, update)
 }
 
+// FindUser is a method for finding users
 func (mStore *MongoUserStore) FindUser(query bson.M, user *User) error {
 	return mStore.usersData.Find(query).One(user)
 }
+
+// FindUserErr returns an exception is user is not found
 func (mStore *MongoUserStore) FindUserErr(query bson.M) error {
 	return mStore.usersData.Find(query).One(nil)
 }
 
+// FindUserAddresses returns user's addresses
 func (mStore *MongoUserStore) FindUserAddresses(query bson.M, sel bson.M, ws *WalletsSelect) error {
 	return mStore.usersData.Find(query).Select(sel).One(ws)
 }
 
+// Insert adds user to DB
 func (mStore *MongoUserStore) Insert(user User) error {
 	return mStore.usersData.Insert(user)
 }
 
+// InsertExchangeRate adds exchange rate to DB
 func (mStore *MongoUserStore) InsertExchangeRate(eRate ExchangeRates, exchangeStock string) error {
 	eRateRecord := &ExchangeRatesRecord{
 		Exchanges:     eRate,
@@ -283,7 +303,8 @@ func (mStore *MongoUserStore) GetExchangeRatesDay() ([]RatesAPIBitstamp, error) 
 	return nil, nil
 }
 
-func (mStore *MongoUserStore) GetAllWalletTransactions(userid string, currencyID, networkID int, walletTxs *[]MultyTX) error {
+// GetAllWalletTransactions returns all the wallet transactions
+func (mStore *MongoUserStore) GetAllWalletTransactions(userid string, currencyID, networkID int, walletTxs *[]MultyTx) error {
 	switch currencyID {
 	case currencies.Bitcoin:
 		query := bson.M{"userid": userid}
@@ -297,7 +318,8 @@ func (mStore *MongoUserStore) GetAllWalletTransactions(userid string, currencyID
 	return nil
 }
 
-func (mStore *MongoUserStore) GetAllWalletEthTransactions(userid string, currencyID, networkID int, walletTxs *[]TransactionETH) error {
+// GetAllWalletETHTransactions returns all the ETH transactions of the wallet
+func (mStore *MongoUserStore) GetAllWalletETHTransactions(userid string, currencyID, networkID int, walletTxs *[]TransactionETH) error {
 	switch currencyID {
 	case currencies.Ether:
 		query := bson.M{"userid": userid}
@@ -313,6 +335,7 @@ func (mStore *MongoUserStore) GetAllWalletEthTransactions(userid string, currenc
 	return nil
 }
 
+// Close closes DB session
 func (mStore *MongoUserStore) Close() error {
 	mStore.session.Close()
 	return nil

@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"context"
@@ -24,29 +25,25 @@ import (
 	"github.com/graarh/golang-socketio/transport"
 )
 
+// Just constants
 const (
-	socketIOOutMsg = "outcoming"
-	socketIOInMsg  = "incoming"
-
-	deviceTypeMac     = "mac"
-	deviceTypeAndroid = "android"
-
+	socketIOOutMsg        = "outcoming"
+	socketIOInMsg         = "incoming"
+	deviceTypeMac         = "mac"
+	deviceTypeAndroid     = "android"
 	topicExchangeDay      = "exchangeDay"
 	topicExchangeGdax     = "exchangeGdax"
 	topicExchangePoloniex = "exchangePoloniex"
 )
 
+// Just constants
 const (
-	PORT         = ":5555"
-	WirelessRoom = "wireless"
-
-	ReceiverOn = "event:receiver:on"
-	SenderOn   = "event:sender:on"
-
-	SenderCheck = "event:sender:check"
-
-	Filter = "event:filter"
-
+	PORT            = ":5555"
+	WirelessRoom    = "wireless"
+	ReceiverOn      = "event:receiver:on"
+	SenderOn        = "event:sender:on"
+	SenderCheck     = "event:sender:check"
+	Filter          = "event:filter"
 	NewReceiver     = "event:new:receiver"
 	SendRaw         = "event:sendraw"
 	PaymentSend     = "event:payment:send"
@@ -76,7 +73,8 @@ func getHeaderDataSocketIO(headers http.Header) (*SocketIOUser, error) {
 	}, nil
 }
 
-func SetSocketIOHandlers(restClient *RestClient, BTC *btc.BTCConn, ETH *eth.ETHConn, r *gin.RouterGroup, address, nsqAddr string, ratesDB store.UserStore) (*SocketIOConnectedPool, error) {
+// SetSocketIOHandlers sets socketIO handlers
+func SetSocketIOHandlers(restClient *RestClient, BTC *btc.Conn, ETH *eth.Conn, r *gin.RouterGroup, address, nsqAddr string, ratesDB store.UserStore) (*SocketIOConnectedPool, error) {
 	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
 	pool, err := InitConnectedPool(server, address, nsqAddr, ratesDB)
 	if err != nil {
@@ -126,7 +124,7 @@ func SetSocketIOHandlers(restClient *RestClient, BTC *btc.BTCConn, ETH *eth.ETHC
 		pool.log.Debugf("OnConnection done")
 	})
 
-	//TODO: feature logic
+	// TODO: feature logic
 
 	server.On(gosocketio.OnError, func(c *gosocketio.Channel) {
 		pool.log.Errorf("Error occurs %s", c.Id())

@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"encoding/json"
@@ -18,10 +19,12 @@ import (
 	"github.com/nsqio/go-nsq"
 )
 
+// FirebaseConf is struct contains firbase config
 type FirebaseConf struct {
 	ServerKey string
 }
 
+// FirebaseClient is struct contains firbase client's config
 type FirebaseClient struct {
 	conf   *FirebaseConf
 	client *fcm.FcmClient
@@ -32,6 +35,7 @@ type FirebaseClient struct {
 	log slf.StructuredLogger
 }
 
+// InitFirebaseConn initialize firebase connection
 func InitFirebaseConn(conf *FirebaseConf, c *gin.Engine, nsqAddr string) (*FirebaseClient, error) {
 	fClient := &FirebaseClient{
 		conf:      conf,

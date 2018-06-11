@@ -1,5 +1,6 @@
 package currencies
 
+// Constants for currencies net
 const (
 	Main = 0
 	Test = 1

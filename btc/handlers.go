@@ -1,9 +1,10 @@
+package btc
+
 /*
 Copyright 2019 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package btc
 
 import (
 	"context"
@@ -24,7 +25,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 
 	mempoolCh := make(chan interface{})
 
-	// initial fill mempool respectively network id
+	// Initial fill mempool respectively network id
 	go func() {
 		stream, err := cli.EventGetAllMempool(context.Background(), &pb.Empty{})
 		if err != nil {
@@ -42,13 +43,13 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 
 			mempoolCh <- store.MempoolRecord{
 				Category: int(mpRec.Category),
-				HashTX:   mpRec.HashTX,
+				HashTx:   mpRec.HashTX,
 			}
 
 		}
 	}()
 
-	// add transaction on every new tx on node
+	// Add transaction on every new tx on node
 	go func() {
 		stream, err := cli.EventAddMempoolRecord(context.Background(), &pb.Empty{})
 		if err != nil {
@@ -67,7 +68,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 
 			mempoolCh <- store.MempoolRecord{
 				Category: int(mpRec.Category),
-				HashTX:   mpRec.HashTX,
+				HashTx:   mpRec.HashTX,
 			}
 
 			if err != nil {
@@ -76,7 +77,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 		}
 	}()
 
-	//deleting mempool record on block
+	// Deleting mempool record on block
 	go func() {
 		stream, err := cli.EventDeleteMempool(context.Background(), &pb.Empty{})
 		if err != nil {
@@ -104,7 +105,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 
 	}()
 
-	// new spendable output
+	// New spendable output
 	go func() {
 		stream, err := cli.EventAddSpendableOut(context.Background(), &pb.Empty{})
 		if err != nil {
@@ -157,7 +158,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 				query := bson.M{"userid": spOut.UserID, "txid": spOut.TxID, "address": spOut.Address}
 				err = spOutputs.Find(query).One(nil)
 				if err == mgo.ErrNotFound {
-					//insertion
+					// Insertion
 					err := spOutputs.Insert(spOut)
 					if err != nil {
 						log.Errorf("Create spOutputs:txsData.Insert: %s", err.Error())
@@ -184,7 +185,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 
 	}()
 
-	// delete spendable output
+	// Delete spendable output
 	go func() {
 		stream, err := cli.EventDeleteSpendableOut(context.Background(), &pb.Empty{})
 		if err != nil {
@@ -213,7 +214,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 
 			i := 0
 			for {
-				//insert to spend collection
+				// Insert to spend collection
 				err := spend.Insert(del)
 				if err != nil {
 					log.Errorf("DeleteSpendableOutputs:spend.Insert: %s", err)
@@ -237,7 +238,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 		}
 	}()
 
-	// add to transaction history record and send ws notification on tx
+	// Add to transaction history record and send ws notification on tx
 	go func() {
 		stream, err := cli.NewTx(context.Background(), &pb.Empty{})
 		if err != nil {
@@ -258,7 +259,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 			setUserID(&tx)
 			// setTxInfo(&tx)
 			user := store.User{}
-			// set wallet index and address index in input
+			// Set wallet index and address index in input
 			for i := 0; i < len(tx.WalletsInput); i++ {
 				sel := bson.M{"wallets.addresses.address": tx.WalletsInput[i].Address.Address}
 				err := usersData.Find(sel).One(&user)
@@ -268,7 +269,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 					log.Errorf("initGrpcClient: cli.On newIncomingTx: %s", err)
 				}
 				for _, wallet := range user.Wallets {
-					for _, addr := range wallet.Adresses {
+					for _, addr := range wallet.Addresses {
 						if addr.Address == tx.WalletsInput[i].Address.Address {
 							tx.WalletsInput[i].WalletIndex = wallet.WalletIndex
 							tx.WalletsInput[i].Address.AddressIndex = addr.AddressIndex
@@ -287,7 +288,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 				}
 
 				for _, wallet := range user.Wallets {
-					for _, addr := range wallet.Adresses {
+					for _, addr := range wallet.Addresses {
 						if addr.Address == tx.WalletsOutput[i].Address.Address {
 							tx.WalletsOutput[i].WalletIndex = wallet.WalletIndex
 							tx.WalletsOutput[i].Address.AddressIndex = addr.AddressIndex
@@ -338,13 +339,13 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 				log.Errorf("initGrpcClient: cli.NewTx:stream.Recv: %s", err.Error())
 			}
 
-			// tx history
+			// Tx history
 			for _, gTx := range rTxs.Txs {
 				tx := generatedTxDataToStore(gTx)
 				setExchangeRates(&tx, gTx.Resync, tx.MempoolTime)
 				setUserID(&tx)
 				user := store.User{}
-				// set wallet index and address index in input
+				// Set wallet index and address index in input
 				for i := 0; i < len(tx.WalletsInput); i++ {
 					sel := bson.M{"wallets.addresses.address": tx.WalletsInput[i].Address.Address}
 					err := usersData.Find(sel).One(&user)
@@ -355,7 +356,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 					}
 
 					for _, wallet := range user.Wallets {
-						for _, addr := range wallet.Adresses {
+						for _, addr := range wallet.Addresses {
 							if addr.Address == tx.WalletsInput[i].Address.Address {
 								tx.WalletsInput[i].WalletIndex = wallet.WalletIndex
 								tx.WalletsInput[i].Address.AddressIndex = addr.AddressIndex
@@ -363,7 +364,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 						}
 					}
 				}
-				// set wallet index and address index in output
+				// Set wallet index and address index in output
 				for i := 0; i < len(tx.WalletsOutput); i++ {
 					sel := bson.M{"wallets.addresses.address": tx.WalletsOutput[i].Address.Address}
 					err := usersData.Find(sel).One(&user)
@@ -374,7 +375,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 					}
 
 					for _, wallet := range user.Wallets {
-						for _, addr := range wallet.Adresses {
+						for _, addr := range wallet.Addresses {
 							if addr.Address == tx.WalletsOutput[i].Address.Address {
 								tx.WalletsOutput[i].WalletIndex = wallet.WalletIndex
 								tx.WalletsOutput[i].Address.AddressIndex = addr.AddressIndex
@@ -389,7 +390,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 				updateWalletAndAddressDate(tx, networtkID)
 			}
 
-			// sp outs
+			// SpOuts
 			for _, gSpOut := range rTxs.SpOuts {
 				query := bson.M{"userid": gSpOut.UserID, "txid": gSpOut.TxID, "address": gSpOut.Address}
 				err = spend.Find(query).One(nil)
@@ -412,7 +413,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 					query := bson.M{"userid": spOut.UserID, "txid": spOut.TxID, "address": spOut.Address}
 					err = spOutputs.Find(query).One(nil)
 					if err == mgo.ErrNotFound {
-						//insertion
+						// Insertion
 						err := spOutputs.Insert(spOut)
 						if err != nil {
 							log.Errorf("Create spOutputs:txsData.Insert: %s", err.Error())
@@ -435,11 +436,11 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 				}
 			}
 
-			// del sp outs
+			// Del SpOuts
 			for _, del := range rTxs.SpOutDelete {
 				i := 0
 				for {
-					//insert to spend collection
+					// Insert to spend collection
 					err = spend.Insert(del)
 					if err != nil {
 						log.Errorf("DeleteSpendableOutputs:spend.Insert: %s", err)
@@ -474,7 +475,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 
 	}()
 
-	// watch for channel and push to node
+	// Watch for channel and push to node
 	go func() {
 		for {
 			select {
@@ -508,16 +509,16 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 			// default:
 			// 	log.Errorf("Not found type: %v", v)
 			case string:
-				// delete tx from pool
+				// Delete tx from pool
 				newMap := *mempool
 				delete(newMap, v)
 				m.Lock()
 				*mempool = newMap
 				m.Unlock()
 			case store.MempoolRecord:
-				// add tx to pool
+				// Add tx to pool
 				newMap := *mempool
-				newMap[v.HashTX] = v.Category
+				newMap[v.HashTx] = v.Category
 				m.Lock()
 				*mempool = newMap
 				m.Unlock()
