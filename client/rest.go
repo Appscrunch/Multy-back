@@ -64,7 +64,7 @@ type RestClient struct {
 	middlewareJWT *GinJWTMiddleware
 	userStore     store.UserStore
 	rpcClient     *rpcclient.Client
-	// // ballance api for test net
+	// Ballance api for test net
 	// apiBTCTest     gobcy.API
 	btcConfTestnet BTCApiConf
 	// // ballance api for main net
@@ -296,7 +296,7 @@ func addAddressToWallet(address, token string, currencyID, networkid, walletInde
 	query := bson.M{"devices.JWT": token}
 
 	if err := restClient.userStore.FindUser(query, &user); err != nil {
-		restClient.log.Errorf("deleteWallet: restClient.userStore.FindUser: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
+		// restClient.log.Errorf("deleteWallet: restClient.userStore.FindUser: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
 		return errors.New(msgErrUserNotFound)
 	}
 
@@ -322,7 +322,7 @@ func addAddressToWallet(address, token string, currencyID, networkid, walletInde
 	sel := bson.M{"devices.JWT": token, "wallets.currencyID": currencyID, "wallets.networkID": networkid, "wallets.walletIndex": walletIndex}
 	update := bson.M{"$push": bson.M{"wallets." + strconv.Itoa(position) + ".addresses": addr}}
 	if err := restClient.userStore.Update(sel, update); err != nil {
-		restClient.log.Errorf("addAddressToWallet: restClient.userStore.Update: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
+		// restClient.log.Errorf("addAddressToWallet: restClient.userStore.Update: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
 		return errors.New(msgErrServerError)
 	}
 
