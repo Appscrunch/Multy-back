@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"errors"
@@ -27,7 +28,7 @@ type GinJWTMiddleware struct {
 	// Realm name to display to the user. Required.
 	Realm string
 
-	// signing algorithm - possible values are HS256, HS384, HS512
+	// Signing algorithm - possible values are HS256, HS384, HS512
 	// Optional, default is HS256.
 	SigningAlgorithm string
 
@@ -79,11 +80,11 @@ type GinJWTMiddleware struct {
 	// TokenHeadName is a string in the header. Default value is "Bearer"
 	TokenHeadName string
 
-	// TimeFunc provides the current time. You can override it to use another time value. This is useful for testing or if your server uses a different time zone than your tokens.
+	// TimeFunc provides the current time. You can override it to use another time value. This is useful for testing or if your server uses a different time zone than your tokens
 	TimeFunc func() time.Time
 }
 
-// Login form structure.
+// Login form structure
 type Login struct {
 	UserID     string `form:"userID" json:"userID" binding:"required"`
 	DeviceID   string `form:"deviceID" json:"deviceID" binding:"required"`
@@ -92,7 +93,7 @@ type Login struct {
 	DeviceType int    `form:"deviceType" json:"deviceType" binding:"required"`
 }
 
-// MiddlewareInit initialize jwt configs.
+// MiddlewareInit initialize jwt configs
 func (mw *GinJWTMiddleware) MiddlewareInit() error {
 
 	if mw.TokenLookup == "" {
