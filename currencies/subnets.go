@@ -1,5 +1,6 @@
 package currencies
 
+// Network IDs
 const (
 	Main = 0
 	Test = 1

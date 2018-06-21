@@ -1,9 +1,10 @@
+package btc
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package btc
 
 import (
 	"encoding/json"
@@ -15,7 +16,6 @@ import (
 	btcpb "github.com/Appscrunch/Multy-back/node-streamer/btc"
 	"github.com/Appscrunch/Multy-back/store"
 	nsq "github.com/bitly/go-nsq"
-	_ "github.com/jekabolt/slflog"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -37,7 +37,7 @@ var (
 
 func updateWalletAndAddressDate(tx store.MultyTX, networkID int) error {
 	for _, wallet := range tx.WalletsInput {
-		sel := bson.M{"userID": wallet.UserId, "wallets.addresses.address": wallet.Address.Address}
+		sel := bson.M{"userID": wallet.UserID, "wallets.addresses.address": wallet.Address.Address}
 		user := store.User{}
 		err := usersData.Find(sel).One(&user)
 		update := bson.M{}
@@ -68,7 +68,7 @@ func updateWalletAndAddressDate(tx store.MultyTX, networkID int) error {
 
 	}
 	for _, wallet := range tx.WalletsOutput {
-		sel := bson.M{"userID": wallet.UserId, "wallets.addresses.address": wallet.Address.Address}
+		sel := bson.M{"userID": wallet.UserID, "wallets.addresses.address": wallet.Address.Address}
 		user := store.User{}
 		err := usersData.Find(sel).One(&user)
 		update := bson.M{}
@@ -102,6 +102,7 @@ func updateWalletAndAddressDate(tx store.MultyTX, networkID int) error {
 	return nil
 }
 
+// GetReSyncExchangeRate returns resynced exchange rates
 func GetReSyncExchangeRate(time int64) ([]store.ExchangeRatesRecord, error) {
 	selCCCAGG := bson.M{
 		"stockexchange": "CCCAGG",
@@ -115,6 +116,7 @@ func GetReSyncExchangeRate(time int64) ([]store.ExchangeRatesRecord, error) {
 	return []store.ExchangeRatesRecord{stocksCCCAGG}, nil
 }
 
+// GetLatestExchangeRate returns latest exchange rates
 func GetLatestExchangeRate() ([]store.ExchangeRatesRecord, error) {
 	selGdax := bson.M{
 		"stockexchange": "Gdax",
@@ -159,7 +161,7 @@ func sendNotifyToClients(tx store.MultyTX, nsqProducer *nsq.Producer, netid int)
 
 	for _, walletOutput := range tx.WalletsOutput {
 		txMsq := store.TransactionWithUserID{
-			UserID: walletOutput.UserId,
+			UserID: walletOutput.UserID,
 			NotificationMsg: &store.WsTxNotify{
 				CurrencyID:      currencies.Bitcoin,
 				NetworkID:       netid,
@@ -175,7 +177,7 @@ func sendNotifyToClients(tx store.MultyTX, nsqProducer *nsq.Producer, netid int)
 
 	for _, walletInput := range tx.WalletsInput {
 		txMsq := store.TransactionWithUserID{
-			UserID: walletInput.UserId,
+			UserID: walletInput.UserID,
 			NotificationMsg: &store.WsTxNotify{
 				CurrencyID:      currencies.Bitcoin,
 				NetworkID:       netid,
@@ -208,17 +210,17 @@ func sendNotify(txMsq *store.TransactionWithUserID, nsqProducer *nsq.Producer) {
 }
 
 func generatedTxDataToStore(gSpOut *btcpb.BTCTransaction) store.MultyTX {
-	outs := []store.AddresAmount{}
+	outs := []store.AddressAmount{}
 	for _, output := range gSpOut.TxOutputs {
-		outs = append(outs, store.AddresAmount{
+		outs = append(outs, store.AddressAmount{
 			Address: output.Address,
 			Amount:  output.Amount,
 		})
 	}
 
-	ins := []store.AddresAmount{}
+	ins := []store.AddressAmount{}
 	for _, inputs := range gSpOut.TxInputs {
-		ins = append(ins, store.AddresAmount{
+		ins = append(ins, store.AddressAmount{
 			Address: inputs.Address,
 			Amount:  inputs.Amount,
 		})
@@ -227,7 +229,7 @@ func generatedTxDataToStore(gSpOut *btcpb.BTCTransaction) store.MultyTX {
 	wInputs := []store.WalletForTx{}
 	for _, walletOutputs := range gSpOut.WalletsOutput {
 		wInputs = append(wInputs, store.WalletForTx{
-			UserId: walletOutputs.Userid,
+			UserID: walletOutputs.Userid,
 			Address: store.AddressForWallet{
 				Address:         walletOutputs.Address,
 				Amount:          walletOutputs.Amount,
@@ -239,7 +241,7 @@ func generatedTxDataToStore(gSpOut *btcpb.BTCTransaction) store.MultyTX {
 	wOutputs := []store.WalletForTx{}
 	for _, walletInputs := range gSpOut.WalletsInput {
 		wOutputs = append(wOutputs, store.WalletForTx{
-			UserId: walletInputs.Userid,
+			UserID: walletInputs.Userid,
 			Address: store.AddressForWallet{
 				Address:         walletInputs.Address,
 				Amount:          walletInputs.Amount,
@@ -249,7 +251,7 @@ func generatedTxDataToStore(gSpOut *btcpb.BTCTransaction) store.MultyTX {
 	}
 
 	return store.MultyTX{
-		UserId:        gSpOut.UserID,
+		UserID:        gSpOut.UserID,
 		TxID:          gSpOut.TxID,
 		TxHash:        gSpOut.TxHash,
 		TxOutScript:   gSpOut.TxOutScript,
@@ -302,14 +304,14 @@ func saveMultyTransaction(tx store.MultyTX, networtkID int, resync bool) error {
 	if tx.BlockHeight == -1 {
 		multyTX := store.MultyTX{}
 		if len(tx.WalletsInput) != 0 {
-			sel := bson.M{"userid": tx.WalletsInput[0].UserId, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsInput[0].WalletIndex}
+			sel := bson.M{"userid": tx.WalletsInput[0].UserID, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsInput[0].WalletIndex}
 			err := txStore.Find(sel).One(multyTX)
 			if err == nil && multyTX.BlockHeight > -1 {
 				return nil
 			}
 		}
 		if len(tx.WalletsOutput) > 0 {
-			sel := bson.M{"userid": tx.WalletsOutput[0].UserId, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsOutput[0].WalletIndex}
+			sel := bson.M{"userid": tx.WalletsOutput[0].UserID, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsOutput[0].WalletIndex}
 			err := txStore.Find(sel).One(multyTX)
 			if err == nil && multyTX.BlockHeight > -1 {
 				return nil
@@ -319,14 +321,14 @@ func saveMultyTransaction(tx store.MultyTX, networtkID int, resync bool) error {
 
 	// Doubling txs fix on a asynchronous err
 	if len(tx.WalletsInput) != 0 {
-		sel := bson.M{"userid": tx.UserId, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsInput[0].WalletIndex, "mempooltime": tx.MempoolTime}
+		sel := bson.M{"userid": tx.UserID, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsInput[0].WalletIndex, "mempooltime": tx.MempoolTime}
 		err := txStore.Find(sel).One(nil)
 		if err == nil {
 			return nil
 		}
 	}
 	if len(tx.WalletsOutput) > 0 {
-		sel := bson.M{"userid": tx.UserId, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsOutput[0].WalletIndex, "mempooltime": tx.MempoolTime}
+		sel := bson.M{"userid": tx.UserID, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsOutput[0].WalletIndex, "mempooltime": tx.MempoolTime}
 		err := txStore.Find(sel).One(nil)
 		if err == nil {
 			return nil
@@ -338,16 +340,16 @@ func saveMultyTransaction(tx store.MultyTX, networtkID int, resync bool) error {
 	multyTX := store.MultyTX{}
 	if tx.WalletsInput != nil && len(tx.WalletsInput) > 0 {
 
-		sel := bson.M{"userid": tx.WalletsInput[0].UserId, "txid": tx.TxID, "txaddress": tx.TxAddress[0]}
+		sel := bson.M{"userid": tx.WalletsInput[0].UserID, "txid": tx.TxID, "txaddress": tx.TxAddress[0]}
 
 		err := txStore.Find(sel).One(&multyTX)
 		if err == mgo.ErrNotFound {
-			// initial insertion
+			// Initial insertion
 			err := txStore.Insert(tx)
 			return err
 		}
 		if err != nil && err != mgo.ErrNotFound {
-			// database error
+			// Database error
 			return err
 		}
 
@@ -364,24 +366,22 @@ func saveMultyTransaction(tx store.MultyTX, networtkID int, resync bool) error {
 		err = txStore.Update(sel, update)
 		if err != nil {
 			log.Errorf("saveMultyTransaction:txsData.Update %s", err.Error())
+			return err
 		}
-		return err
 
-		// sel := bson.M{"userid": tx.WalletsInput[0].UserId, "transactions.txid": tx.TxID, "transactions.walletsinput.walletindex": tx.WalletsInput[0].WalletIndex}
-		// sel := bson.M{"userid": tx.WalletsInput[0].UserId, "txid": tx.TxID, "walletsinput.walletindex": tx.WalletsInput[0].WalletIndex} // last
-		sel = bson.M{"userid": tx.WalletsInput[0].UserId, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsInput[0].WalletIndex}
+		sel = bson.M{"userid": tx.WalletsInput[0].UserID, "txid": tx.TxID, "walletsoutput.walletindex": tx.WalletsInput[0].WalletIndex}
 		if tx.BlockHeight != -1 {
-			sel = bson.M{"userid": tx.WalletsInput[0].UserId, "txid": tx.TxID, "walletsinput.walletindex": tx.WalletsInput[0].WalletIndex}
+			sel = bson.M{"userid": tx.WalletsInput[0].UserID, "txid": tx.TxID, "walletsinput.walletindex": tx.WalletsInput[0].WalletIndex}
 		}
 
 		err = txStore.Find(sel).One(&multyTX)
 		if err == mgo.ErrNotFound {
-			// initial insertion
+			// Initial insertion
 			err := txStore.Insert(tx)
 			return err
 		}
 		if err != nil && err != mgo.ErrNotFound {
-			// database error
+			// Database error
 			return err
 		}
 
@@ -398,16 +398,15 @@ func saveMultyTransaction(tx store.MultyTX, networtkID int, resync bool) error {
 		err = txStore.Update(sel, update)
 		return err
 	} else if tx.WalletsOutput != nil && len(tx.WalletsOutput) > 0 {
-		// sel := bson.M{"userid": tx.WalletsOutput[0].UserId, "transactions.txid": tx.TxID, "transactions.walletsoutput.walletindex": tx.WalletsOutput[0].WalletIndex}
-		sel := bson.M{"userid": tx.WalletsOutput[0].UserId, "txid": tx.TxID, "txaddress": tx.TxAddress[0]}
+		sel := bson.M{"userid": tx.WalletsOutput[0].UserID, "txid": tx.TxID, "txaddress": tx.TxAddress[0]}
 		err := txStore.Find(sel).One(&multyTX)
 		if err == mgo.ErrNotFound {
-			// initial insertion
+			// Initial insertion
 			err := txStore.Insert(tx)
 			return err
 		}
 		if err != nil && err != mgo.ErrNotFound {
-			// database error
+			// Database error
 			return err
 		}
 
@@ -438,13 +437,13 @@ func setUserID(tx *store.MultyTX) {
 		if err != nil {
 			log.Errorf("setUserID: usersData.Find: %s", err.Error())
 		}
-		tx.UserId = user.UserID
+		tx.UserID = user.UserID
 	}
 }
 
 func setTxInfo(tx *store.MultyTX) {
 	user := store.User{}
-	// set wallet index and address index in input
+	// Set wallet index and address index in input
 	for _, in := range tx.WalletsInput {
 		sel := bson.M{"wallets.addresses.address": in.Address.Address}
 		err := usersData.Find(sel).One(&user)
@@ -464,7 +463,7 @@ func setTxInfo(tx *store.MultyTX) {
 		}
 	}
 
-	// set wallet index and address index in output
+	// et wallet index and address index in output
 	for _, out := range tx.WalletsOutput {
 		sel := bson.M{"wallets.addresses.address": out.Address.Address}
 		err := usersData.Find(sel).One(&user)

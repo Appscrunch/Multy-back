@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"encoding/json"
@@ -11,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jekabolt/slf"
 	"github.com/gorilla/websocket"
+	"github.com/jekabolt/slf"
 )
 
 const (
@@ -35,7 +36,7 @@ type GdaxAPI struct {
 	log slf.StructuredLogger
 }
 
-//GDAXSocketEvent is a GDAX json parser structure
+// GDAXSocketEvent is a GDAX json parser structure
 type GDAXSocketEvent struct {
 	ProductID string `json:"product_id"`
 	Price     string `json:"price"`
@@ -189,7 +190,7 @@ func (poloniex *PoloniexAPI) listen() {
 func (poloniex *PoloniexAPI) updateRate(rateRaw *PoloniexSocketEvent) {
 	floatPrice, err := strconv.ParseFloat(rateRaw.Data.Price, 32)
 	if err != nil {
-		// seems like here would be ttl messages, which is empty structures
+		// Seems like here would be TTL messages, which is empty structures
 		return
 	}
 
