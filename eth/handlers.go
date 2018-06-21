@@ -1,9 +1,10 @@
+package eth
+
 /*
 Copyright 2019 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package eth
 
 import (
 	"context"
@@ -49,7 +50,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 		}
 	}()
 
-	// add transaction on every new tx on node
+	// Add transaction on every new tx on node
 	go func() {
 		stream, err := cli.EventAddMempoolRecord(context.Background(), &pb.Empty{})
 		if err != nil {
@@ -72,7 +73,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 		}
 	}()
 
-	//deleting mempool record on block
+	// Deleting mempool record on block
 	go func() {
 
 		stream, err := cli.EventDeleteMempool(context.Background(), &pb.Empty{})
@@ -101,7 +102,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 
 	}()
 
-	// add to transaction history record and send ws notification on tx
+	// Add to transaction history record and send ws notification on tx
 	go func() {
 		stream, err := cli.NewTx(context.Background(), &pb.Empty{})
 		if err != nil {
@@ -168,7 +169,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 		}
 	}()
 
-	// watch for channel and push to node
+	// Watch for channel and push to node
 	go func() {
 		for {
 			select {
@@ -197,12 +198,12 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 		for {
 			switch v := (<-mempoolCh).(type) {
 			// default:
-			// 	log.Errorf("Not found type: %v", v)
+			// log.Errorf("Not found type: %v", v)
 			case string:
-				// delete tx from pool
+				// Delete tx from pool
 				mempool.Delete(v)
 			case store.MempoolRecord:
-				// add tx to pool
+				// Add tx to pool
 				mempool.Store(v.HashTX, v.Category)
 			}
 		}

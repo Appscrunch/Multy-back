@@ -1,9 +1,10 @@
+package eth
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package eth
 
 import (
 	"encoding/json"
@@ -15,7 +16,6 @@ import (
 	ethpb "github.com/Appscrunch/Multy-back/node-streamer/eth"
 	"github.com/Appscrunch/Multy-back/store"
 	nsq "github.com/bitly/go-nsq"
-	_ "github.com/jekabolt/slflog"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -100,6 +100,7 @@ func updateWalletAndAddressDate(tx store.TransactionETH, networkID int) error {
 	return nil
 }
 
+// GetReSyncExchangeRate is a method for resyncing exchange rates
 func GetReSyncExchangeRate(time int64) ([]store.ExchangeRatesRecord, error) {
 	selCCCAGG := bson.M{
 		"stockexchange": "CCCAGG",
@@ -110,6 +111,7 @@ func GetReSyncExchangeRate(time int64) ([]store.ExchangeRatesRecord, error) {
 	return []store.ExchangeRatesRecord{stocksCCCAGG}, err
 }
 
+// GetLatestExchangeRate is a method for getting latest exchange rates
 func GetLatestExchangeRate() ([]store.ExchangeRatesRecord, error) {
 	selGdax := bson.M{
 		"stockexchange": "Gdax",
@@ -151,7 +153,7 @@ func setExchangeRates(tx *store.TransactionETH, isReSync bool, TxTime int64) {
 }
 
 func sendNotifyToClients(tx store.TransactionETH, nsqProducer *nsq.Producer, netid int) {
-	//TODO: make correct notify
+	// TODO: make correct notify
 
 	if tx.Status == store.TxStatusAppearedInBlockIncoming || tx.Status == store.TxStatusAppearedInMempoolIncoming || tx.Status == store.TxStatusInBlockConfirmedIncoming {
 		txMsq := store.TransactionWithUserID{
@@ -238,19 +240,19 @@ func saveTransaction(tx store.TransactionETH, networtkID int, resync bool) error
 	// txStore.Find(query).All(&fetchedTxs)
 
 	// This is splited transaction! That means that transaction's WalletsInputs and WalletsOutput have the same WalletIndex!
-	//Here we have outgoing transaction for exact wallet!
+	// Here we have outgoing transaction for exact wallet!
 	multyTX := store.TransactionETH{}
 	if tx.Status == store.TxStatusAppearedInBlockIncoming || tx.Status == store.TxStatusAppearedInMempoolIncoming || tx.Status == store.TxStatusInBlockConfirmedIncoming {
 		log.Debugf("saveTransaction new incoming tx to %v", tx.To)
 		sel := bson.M{"userid": tx.UserID, "hash": tx.Hash, "walletindex": tx.WalletIndex}
 		err := txStore.Find(sel).One(&multyTX)
 		if err == mgo.ErrNotFound {
-			// initial insertion
+			// Initial insertion
 			err := txStore.Insert(tx)
 			return err
 		}
 		if err != nil && err != mgo.ErrNotFound {
-			// database error
+			// Database error
 			return err
 		}
 
@@ -268,12 +270,12 @@ func saveTransaction(tx store.TransactionETH, networtkID int, resync bool) error
 		sel := bson.M{"userid": tx.UserID, "hash": tx.Hash, "walletindex": tx.WalletIndex}
 		err := txStore.Find(sel).One(&multyTX)
 		if err == mgo.ErrNotFound {
-			// initial insertion
+			// Initial insertion
 			err := txStore.Insert(tx)
 			return err
 		}
 		if err != nil && err != mgo.ErrNotFound {
-			// database error
+			// Database error
 			return err
 		}
 

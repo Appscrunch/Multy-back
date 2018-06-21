@@ -1,9 +1,10 @@
+package btc
+
 /*
 Copyright 2019 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package btc
 
 import (
 	"fmt"
@@ -19,8 +20,8 @@ import (
 	"github.com/jekabolt/slf"
 )
 
-// BTCConn is a main struct of package
-type BTCConn struct {
+// Conn is a main struct of package
+type Conn struct {
 	NsqProducer      *nsq.Producer // a producer for sending data to clients
 	CliTest          pb.NodeCommuunicationsClient
 	CliMain          pb.NodeCommuunicationsClient
@@ -35,11 +36,11 @@ type BTCConn struct {
 
 var log = slf.WithContext("btc")
 
-//InitHandlers init nsq mongo and ws connection to node
+// InitHandlers init nsq mongo and ws connection to node
 // return main client , test client , err
-func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string) (*BTCConn, error) {
-	//declare pacakge struct
-	cli := &BTCConn{
+func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string) (*Conn, error) {
+	// Declare package struct
+	cli := &Conn{
 		BtcMempool:     sync.Map{},
 		BtcMempoolTest: sync.Map{},
 		Resync:         sync.Map{},
@@ -78,12 +79,12 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 	usersData = db.DB(dbConf.DBUsers).C(store.TableUsers) // all db tables
 	exRate = db.DB(dbConf.DBStockExchangeRate).C("TableStockExchangeRate")
 
-	// main
+	// Main
 	txsData = db.DB(dbConf.DBTx).C(dbConf.TableTxsDataBTCMain)
 	spendableOutputs = db.DB(dbConf.DBTx).C(dbConf.TableSpendableOutputsBTCMain)
 	spentOutputs = db.DB(dbConf.DBTx).C(dbConf.TableSpentOutputsBTCMain)
 
-	// test
+	// Test
 	txsDataTest = db.DB(dbConf.DBTx).C(dbConf.TableTxsDataBTCTest)
 	spendableOutputsTest = db.DB(dbConf.DBTx).C(dbConf.TableSpendableOutputsBTCTest)
 	spentOutputsTest = db.DB(dbConf.DBTx).C(dbConf.TableSpentOutputsBTCTest)
@@ -143,17 +144,3 @@ func fethCoinType(coinTypes []store.CoinType, currencyID, networkID int) (string
 	}
 	return "", fmt.Errorf("fethCoinType: no such coin in config")
 }
-
-// // BtcTransaction stuct for ws notifications
-// type BtcTransaction struct {
-// 	TransactionType int    `json:"transactionType"`
-// 	Amount          int64  `json:"amount"`
-// 	TxID            string `json:"txid"`
-// 	Address         string `json:"address"`
-// }
-
-// // BtcTransactionWithUserID sub-stuct for ws notifications
-// type BtcTransactionWithUserID struct {
-// 	NotificationMsg *BtcTransaction
-// 	UserID          string
-// }

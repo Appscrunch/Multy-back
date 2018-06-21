@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"encoding/json"
@@ -20,22 +21,21 @@ import (
 
 const updateExchangeClient = time.Second * 5
 
+// SocketIOConnectedPool is the way socketIO connected pull are stored
 type SocketIOConnectedPool struct {
-	address         string
-	users           map[string]*SocketIOUser // socketio connections by client id
-	closeChByConnID map[string]chan string   // when connection was finished, send close signal to his goroutine
-	m               *sync.RWMutex
-
+	address                   string
+	users                     map[string]*SocketIOUser // SocketIO connections by client id
+	closeChByConnID           map[string]chan string   // When connection was finished, send close signal to his goroutine
+	m                         *sync.RWMutex
 	nsqConsumerExchange       *nsq.Consumer
 	nsqConsumerBTCTransaction *nsq.Consumer
-
-	db store.UserStore // TODO: fix store name
-
-	chart  *exchangeChart
-	server *gosocketio.Server
-	log    slf.StructuredLogger
+	db                        store.UserStore // TODO: fix store name
+	chart                     *exchangeChart
+	server                    *gosocketio.Server
+	log                       slf.StructuredLogger
 }
 
+// InitConnectedPool initialezes connected pool
 func InitConnectedPool(server *gosocketio.Server, address, nsqAddr string, db store.UserStore) (*SocketIOConnectedPool, error) {
 	pool := &SocketIOConnectedPool{
 		m:               &sync.RWMutex{},
@@ -124,6 +124,7 @@ func (sConnPool *SocketIOConnectedPool) removeUserFromPool(userID string) {
 	delete(sConnPool.users, userID)
 }
 
+// SocketIOUser is the way sockerIO users are stored
 type SocketIOUser struct {
 	userID     string
 	deviceType string
@@ -156,7 +157,7 @@ func newSocketIOUser(id string, newUser *SocketIOUser, conn *gosocketio.Channel,
 	return newUser
 }
 
-// send right now exchanges to prevent pauses
+// Send right now exchanges to prevent pauses
 func sendExchange(newUser *SocketIOUser, conn *gosocketio.Channel) {
 	gdaxRate := newUser.chart.getExchangeGdax()
 	poloniexRate := newUser.chart.getExchangePoloniex()
@@ -166,7 +167,7 @@ func sendExchange(newUser *SocketIOUser, conn *gosocketio.Channel) {
 }
 
 func (sIOUser *SocketIOUser) runUpdateExchange() {
-	// sending data by ticket
+	// Sending data by ticket
 	sIOUser.tickerLastExchange = time.NewTicker(updateExchangeClient)
 
 	for {

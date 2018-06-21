@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"net/http"
@@ -15,8 +16,6 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"gopkg.in/mgo.v2/bson"
 )
-
-// The jwt middleware.
 
 // LoginHandler can be used by clients to get a jwt token.
 // Payload needs to be json in the form of {"username": "USERNAME", "password": "PASSWORD", "deviceid": "DEVICEID"}.
@@ -86,8 +85,6 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 			return
 		}
 
-		// old user - check new or old device
-
 		// If user auths with DeviceID and UserID that
 		// already exists in DB we refresh JWT token.
 		for _, concreteDevice := range user.Devices {
@@ -113,9 +110,9 @@ func (restClient *RestClient) LoginHandler() gin.HandlerFunc {
 			}
 		}
 
-		// no such device - creatig this one
+		// No such device - creatig this one
 		restClient.log.Infof("creating new device %s", loginVals.DeviceID)
-		// case of adding new device to user account
+		// Case of adding new device to user account
 		// e.g. user want to use app on another device
 		device := createDevice(loginVals.DeviceID, c.ClientIP(), tokenString, loginVals.PushToken, loginVals.AppVersion, loginVals.DeviceType)
 		user.Devices = append(user.Devices, device)
