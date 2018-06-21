@@ -1,9 +1,10 @@
+package client
+
 /*
 Copyright 2018 Idealnaya rabota LLC
 Licensed under Multy.io license.
 See LICENSE for details
 */
-package client
 
 import (
 	"context"
@@ -23,6 +24,7 @@ import (
 	"github.com/nsqio/go-nsq"
 )
 
+// FirebaseConf is a config contains all the neccessary data for sending pushes (see Firabase documentation)
 type FirebaseConf struct {
 	Type                    string `json:"type"`
 	ProjectID               string `json:"project_id"`
@@ -36,6 +38,7 @@ type FirebaseConf struct {
 	ClientX509CertURL       string `json:"client_x509_cert_url"`
 }
 
+// FirebaseClient is struct contains firbase client's config
 type FirebaseClient struct {
 	conf *FirebaseConf
 	// client *fcm.FcmClient
@@ -47,6 +50,7 @@ type FirebaseClient struct {
 	log slf.StructuredLogger
 }
 
+// InitFirebaseConn initialize firebase connection (parameters from multy.config)
 func InitFirebaseConn(conf *FirebaseConf, c *gin.Engine, nsqAddr string) (*FirebaseClient, error) {
 	fClient := &FirebaseClient{
 		conf: conf,
@@ -100,8 +104,7 @@ func InitFirebaseConn(conf *FirebaseConf, c *gin.Engine, nsqAddr string) (*Fireb
 					Payload: &messaging.APNSPayload{
 						Aps: &messaging.Aps{
 							Alert: &messaging.ApsAlert{
-								Title: "You have a new transaction",
-								// Body:  msg.NotificationMsg.Amount + " " + currencies.CurrencyNames[msg.NotificationMsg.CurrencyID],
+								Title:   "You have a new transaction",
 								LocKey:  store.TopicNewIncoming,
 								LocArgs: []string{convertToHuman(msg.NotificationMsg.Amount, currencies.Dividers[msg.NotificationMsg.CurrencyID]), currencies.CurrencyNames[msg.NotificationMsg.CurrencyID]},
 							},
@@ -138,6 +141,7 @@ func InitFirebaseConn(conf *FirebaseConf, c *gin.Engine, nsqAddr string) (*Fireb
 	return fClient, nil
 }
 
+// NewPushService produces firebase application
 func NewPushService(withCredentialsFile string) (*firebase.App, error) {
 	opt := option.WithCredentialsFile(withCredentialsFile)
 	return firebase.NewApp(context.Background(), nil, opt)
