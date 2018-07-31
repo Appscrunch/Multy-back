@@ -1,8 +1,8 @@
 /*
-Copyright 2018 Idealnaya rabota LLC
-Licensed under Multy.io license.
-See LICENSE for details
-*/
+ * Copyright 2018 Idealnaya rabota LLC
+ * Licensed under Multy.io license.
+ * See LICENSE for details
+ */
 package client
 
 import (
@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jekabolt/slf"
 	"github.com/gorilla/websocket"
+	"github.com/jekabolt/slf"
 )
 
 const (

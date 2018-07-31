@@ -1,8 +1,8 @@
 /*
-Copyright 2018 Idealnaya rabota LLC
-Licensed under Multy.io license.
-See LICENSE for details
-*/
+ * Copyright 2018 Idealnaya rabota LLC
+ * Licensed under Multy.io license.
+ * See LICENSE for details
+ */
 package multyback
 
 import (
@@ -13,6 +13,7 @@ import (
 	"github.com/Multy-io/Multy-back/btc"
 	"github.com/Multy-io/Multy-back/client"
 	"github.com/Multy-io/Multy-back/currencies"
+	"github.com/Multy-io/Multy-back/eos"
 	"github.com/Multy-io/Multy-back/eth"
 	btcpb "github.com/Multy-io/Multy-back/node-streamer/btc"
 	ethpb "github.com/Multy-io/Multy-back/node-streamer/eth"
@@ -52,6 +53,7 @@ type Multy struct {
 
 	BTC *btc.BTCConn
 	ETH *eth.ETHConn
+	EOS *eos.Conn
 }
 
 // Init initializes Multy instance
@@ -263,6 +265,7 @@ func (multy *Multy) initHttpRoutes(conf *Configuration) error {
 		conf.DonationAddresses,
 		multy.BTC,
 		multy.ETH,
+		multy.EOS,
 		conf.MultyVerison,
 		conf.Secretkey,
 		conf.DeviceVersions,
