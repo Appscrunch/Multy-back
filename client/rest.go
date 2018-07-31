@@ -135,9 +135,9 @@ func SetRestHandlers(
 
 		// Only EOS for now
 		v1.POST("/account/create", restClient.accountCreate)
-		v1.GET("/account/check", restClient.accountCheck)
-		v1.GET("/account/price", restClient.accountPrice)
-		v1.GET("/account/get_by_key", restClient.accountGetByKey)
+		v1.POST("/account/check", restClient.accountCheck)
+		v1.POST("/account/price", restClient.accountPrice)
+		v1.POST("/account/get_by_key", restClient.accountGetByKey)
 	}
 	return restClient, nil
 }
