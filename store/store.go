@@ -53,6 +53,9 @@ type Conf struct {
 	TableMempoolRatesETHTest string
 	TableTxsDataETHTest      string
 
+	// EOS main
+	TableTxsDataEOSMain string
+
 	//RestoreState
 	DBRestoreState string
 	TableState     string

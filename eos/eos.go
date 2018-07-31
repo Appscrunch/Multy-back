@@ -39,15 +39,35 @@ type Conn struct {
 }
 
 // NewConn creates all the connections
-func NewConn(nodes []store.CoinType) (*Conn, error) {
+func NewConn(dbConf *store.Conf, nodes []store.CoinType, nsqAddress string) (*Conn, error) {
 	grpcConn, err := getGrpc(nodes, currencies.EOS, currencies.Main)
 	if err != nil {
 		return nil, fmt.Errorf("getGrpc: %s", err)
 	}
+
+	config := nsq.NewConfig()
+	producer, err := nsq.NewProducer(nsqAddress, config)
+	if err != nil {
+		return nil, fmt.Errorf("nsq producer: %s", err)
+	}
+
+	dbConn, err := mgo.DialWithInfo(&mgo.DialInfo{
+		Addrs:    []string{dbConf.Address},
+		Username: dbConf.Username,
+		Password: dbConf.Password,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("nsq producer: %s", err)
+	}
+
 	conn := &Conn{
 		Client: proto.NewNodeCommunicationsClient(grpcConn),
 		//TODO: chanel buffering?
 		WatchAddresses: make(chan proto.WatchAddress),
+		restoreState:   dbConn.DB(dbConf.DBRestoreState).C(dbConf.TableState),
+		txStore:        dbConn.DB(dbConf.DBTx).C(dbConf.TableTxsDataEOSMain),
+		nsq:            producer,
+		networkID:      currencies.Main,
 	}
 
 	conn.runAsyncHandlers()
