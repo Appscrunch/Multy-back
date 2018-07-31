@@ -1,8 +1,8 @@
 /*
-Copyright 2018 Idealnaya rabota LLC
-Licensed under Multy.io license.
-See LICENSE for details
-*/
+ * Copyright 2018 Idealnaya rabota LLC
+ * Licensed under Multy.io license.
+ * See LICENSE for details
+ */
 package currencies
 
 const (
@@ -179,6 +179,7 @@ const (
 	Ember                  = 170
 	Hcash                  = 171
 	HTMLCOIN               = 172
+	EOS                    = 194
 	AskCoin                = 223
 	Smartcash              = 224
 	ZenProtocol            = 258
@@ -364,6 +365,7 @@ var CurrencyNames = map[int]string{
 	Ember:                  "Ember",
 	Hcash:                  "Hcash",
 	HTMLCOIN:               "HTMLCOIN",
+	EOS:                    "EOS",
 	AskCoin:                "AskCoin",
 	Smartcash:              "Smartcash",
 	ZenProtocol:            "ZenProtocol",
