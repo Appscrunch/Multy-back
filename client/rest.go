@@ -2494,6 +2494,13 @@ func (server *RestClient) accountGetByKey(ctx *gin.Context) {
 		})
 		return
 	}
+	if key.PublicKey == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": msgErrRequestBodyError,
+		})
+		return
+	}
 	accounts, err := server.EOS.Client.GetKeyAccounts(ctx, &key)
 	if err != nil {
 		server.log.Errorf("eos get_key_accounts: %s", err)
