@@ -2494,6 +2494,7 @@ func (server *RestClient) accountGetByKey(ctx *gin.Context) {
 		})
 		return
 	}
+
 	if key.PublicKey == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    http.StatusBadRequest,
@@ -2510,6 +2511,19 @@ func (server *RestClient) accountGetByKey(ctx *gin.Context) {
 		})
 		return
 	}
+	if accounts == nil {
+		server.log.Errorf("eos get_key_accounts: %s", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": http.StatusText(http.StatusInternalServerError),
+		})
+		return
+	}
+
+	if accounts.AccountNames == nil {
+		accounts.AccountNames = make([]string, 0)
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"code":          http.StatusOK,
 		"account_names": accounts.AccountNames,
