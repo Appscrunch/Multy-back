@@ -707,9 +707,22 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 			message = http.StatusText(http.StatusOK)
 
 		case currencies.EOS:
+			var conn *eos.Conn
+			switch networkid {
+			case currencies.Main:
+				conn = restClient.EOSMain
+			case currencies.Test:
+				conn = restClient.EOSTest
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"message": msgErrMethodNotImplennted,
+				})
+				return
+			}
 			wallet := user.GetWallet(networkid, currencyId, walletIndex)
 			for _, address := range wallet.Adresses {
-				balance, err := restClient.EOSMain.Client.GetAddressBalance(c, &eospb.Account{
+				balance, err := conn.Client.GetAddressBalance(c, &eospb.Account{
 					Name: address.Address,
 				})
 				if err != nil {
@@ -1280,8 +1293,21 @@ func (restClient *RestClient) sendRawHDTransaction() gin.HandlerFunc {
 				return
 			}
 		case currencies.EOS:
+			var conn *eos.Conn
+			switch rawTx.NetworkID {
+			case currencies.Main:
+				conn = restClient.EOSMain
+			case currencies.Test:
+				conn = restClient.EOSTest
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"message": msgErrMethodNotImplennted,
+				})
+				return
+			}
 			// TODO: check if addr is watched?
-			resp, err := restClient.EOSMain.Client.SendRawTx(c, &eospb.RawTx{
+			resp, err := conn.Client.SendRawTx(c, &eospb.RawTx{
 				Transaction: []byte(rawTx.Transaction),
 			})
 			if err != nil {
@@ -2190,7 +2216,20 @@ func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
 			}
 
 		case currencies.EOS:
-			history, err := restClient.EOSMain.GetActionHistory(c, user.UserID, walletIndex, currencyId, networkid)
+			var conn *eos.Conn
+			switch networkid {
+			case currencies.Main:
+				conn = restClient.EOSMain
+			case currencies.Test:
+				conn = restClient.EOSTest
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"message": msgErrMethodNotImplennted,
+				})
+				return
+			}
+			history, err := conn.GetActionHistory(c, user.UserID, walletIndex, currencyId, networkid)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"code":    http.StatusInternalServerError,
@@ -2346,8 +2385,21 @@ func (restClient *RestClient) resyncWallet() gin.HandlerFunc {
 
 			}
 		case currencies.EOS:
+			var conn *eos.Conn
+			switch networkID {
+			case currencies.Main:
+				conn = restClient.EOSMain
+			case currencies.Test:
+				conn = restClient.EOSTest
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"message": msgErrMethodNotImplennted,
+				})
+				return
+			}
 			for _, address := range walletToResync.Adresses {
-				_, err := restClient.EOSMain.Client.ResyncAddress(c, &eospb.AddressToResync{
+				_, err := conn.Client.ResyncAddress(c, &eospb.AddressToResync{
 					Address: address.Address,
 				})
 				if err != nil {
