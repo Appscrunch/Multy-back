@@ -52,9 +52,10 @@ type Multy struct {
 	restClient     *client.RestClient
 	firebaseClient *client.FirebaseClient
 
-	BTC *btc.BTCConn
-	ETH *eth.ETHConn
-	EOS *eos.Conn
+	BTC     *btc.BTCConn
+	ETH     *eth.ETHConn
+	EOSMain *eos.Conn
+	EOSTest *eos.Conn
 }
 
 // Init initializes Multy instance
@@ -92,11 +93,29 @@ func Init(conf *Configuration) (*Multy, error) {
 
 	multy.ETH = ethCli
 	log.Infof(" ETH initialization done on %v √", ethVer)
-	eosConn, err := eos.NewConn(&conf.Database, conf.SupportedNodes, conf.NSQAddress)
-	eosVersion, err := eosConn.Client.ServiceInfo(context.Background(), &eospb.Empty{})
-	log.Infof(" EOS initialization done on %v √", eosVersion)
-	multy.EOS = eosConn
 
+	for _, node := range conf.SupportedNodes {
+		if node.СurrencyID == currencies.EOS {
+			eosConn, err := eos.NewConn(&conf.Database, node.GRPCUrl, conf.NSQAddress)
+			if err != nil {
+				return nil, fmt.Errorf("eos new connection: %s")
+			}
+			eosVersion, err := eosConn.Client.ServiceInfo(context.Background(), &eospb.Empty{})
+			if err != nil {
+				return nil, fmt.Errorf("eos get version: %s")
+			}
+			switch node.NetworkID {
+			case currencies.Main:
+				multy.EOSMain = eosConn
+				log.Infof("EOS mainnet initialization done on %v √", eosVersion)
+			case currencies.Test:
+				multy.EOSTest = eosConn
+				log.Infof("EOS testnet initialization done on %v √", eosVersion)
+			default:
+				log.Errorf("unknown eos network id: %d", node.NetworkID)
+			}
+		}
+	}
 	//users data set
 	sv, err := multy.SetUserData(multy.userStore, conf.SupportedNodes)
 	if err != nil {
@@ -249,6 +268,42 @@ func (m *Multy) SetUserData(userStore store.UserStore, ct []store.CoinType) ([]s
 				Buildtime: sv.Buildtime,
 				Lasttag:   sv.Lasttag,
 			})
+		case currencies.EOS:
+			var conn *eos.Conn
+			switch conCred.NetworkID {
+			case currencies.Main:
+				conn = m.EOSMain
+			case currencies.Test:
+				conn = m.EOSTest
+			default:
+				log.Errorf("unknown network id %d", conCred.NetworkID)
+				continue
+			}
+			req := make(map[string]*eospb.AddressExtended)
+			for key, addr := range usersData {
+				req[key] = &eospb.AddressExtended{
+					UserID:       addr.UserID,
+					AddressIndex: int32(addr.AddressIndex),
+					WalletIndex:  int32(addr.WalletIndex),
+				}
+			}
+			resp, err := conn.Client.InitialAdd(context.TODO(), &eospb.UsersData{
+				Map: req,
+			})
+			if err != nil {
+				return servicesInfo, fmt.Errorf("SetUserData: EOS.EventInitialAdd: curID :%d netID :%d err =%s", conCred.СurrencyID, conCred.NetworkID, err.Error())
+			}
+			log.Debugf("Ether cli.EventInitialAdd: resp: %s", resp.Message)
+			sv, err := conn.Client.ServiceInfo(context.Background(), &eospb.Empty{})
+			if err != nil {
+				return servicesInfo, fmt.Errorf("SetUserData: EOS ServiceInfo: curID :%d netID :%d err =%s", conCred.СurrencyID, conCred.NetworkID, err.Error())
+			}
+			servicesInfo = append(servicesInfo, store.ServiceInfo{
+				Branch:    sv.Branch,
+				Commit:    sv.Commit,
+				Buildtime: sv.Buildtime,
+				Lasttag:   sv.Lasttag,
+			})
 		}
 	}
 
@@ -271,7 +326,8 @@ func (multy *Multy) initHttpRoutes(conf *Configuration) error {
 		conf.DonationAddresses,
 		multy.BTC,
 		multy.ETH,
-		multy.EOS,
+		multy.EOSMain,
+		multy.EOSTest,
 		conf.MultyVerison,
 		conf.Secretkey,
 		conf.DeviceVersions,

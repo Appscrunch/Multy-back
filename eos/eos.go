@@ -39,12 +39,7 @@ type Conn struct {
 }
 
 // NewConn creates all the connections
-func NewConn(dbConf *store.Conf, nodes []store.CoinType, nsqAddress string) (*Conn, error) {
-	grpcConn, err := getGrpc(nodes, currencies.EOS, currencies.Main)
-	if err != nil {
-		return nil, fmt.Errorf("getGrpc: %s", err)
-	}
-
+func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string) (*Conn, error) {
 	config := nsq.NewConfig()
 	producer, err := nsq.NewProducer(nsqAddress, config)
 	if err != nil {
@@ -58,6 +53,11 @@ func NewConn(dbConf *store.Conf, nodes []store.CoinType, nsqAddress string) (*Co
 	})
 	if err != nil {
 		return nil, fmt.Errorf("nsq producer: %s", err)
+	}
+
+	grpcConn, err := grpc.Dial(grpcUrl, grpc.WithInsecure())
+	if err != nil {
+		return nil, fmt.Errorf("grpc dial: %s", err)
 	}
 
 	conn := &Conn{

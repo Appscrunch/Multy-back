@@ -11,43 +11,55 @@ import (
 	"fmt"
 	"github.com/Multy-io/Multy-EOS-node-service/proto"
 	"github.com/Multy-io/Multy-back/store"
+	"strings"
 )
 
-type Balance struct {
-	CurrencyID     int            `json:"currency_id"`
-	NetworkID      int            `json:"network_id"`
-	WalletIndex    int            `json:"wallet_index"`
-	WalletName     string         `json:"wallet_name"`
-	LastActionTime int64          `json:"last_action_time"`
-	DateOfCreation int64          `json:"date_of_creation"`
-	Assets         []*proto.Asset `json:"assets"`
+type Wallet struct {
+	CurrencyID     int              `json:"currencyid"`
+	NetworkID      int              `json:"networkid"`
+	WalletIndex    int              `json:"walletindex"`
+	WalletName     string           `json:"walletname"`
+	LastActionTime int64            `json:"lastactiontime"`
+	DateOfCreation int64            `json:"dateofcreation"`
+	VerboseAddress []AddressBalance `json:"addresses"`
 }
 
-func (conn *Conn) GetBalance(ctx context.Context, wallet store.Wallet) ([]Balance, error) {
+type AddressBalance struct {
+	Amount       string `json:"amount"`
+	Address      string `json:"address"`
+	AddressIndex int    `json:"addressindex"`
+}
+
+func (conn *Conn) GetBalance(ctx context.Context, wallet store.Wallet) ([]AddressBalance, error) {
 	if len(wallet.Adresses) == 0 {
 		return nil, fmt.Errorf("wallet has no addresses")
 	}
-	balances := make([]Balance, 0, len(wallet.Adresses))
+	balances := make([]AddressBalance, 0, len(wallet.Adresses))
 	for _, addr := range wallet.Adresses {
-		// get EOS token for now
-		balance, err := conn.Client.GetTokenBalance(ctx, &proto.BalanceReq{
-			Account: addr.Address,
-			Symbol:  "EOS",
+		balance, err := conn.Client.GetAddressBalance(ctx, &proto.Account{
+			Name: addr.Address,
 		})
 		if err != nil {
 			// skip address log error
-			log.Errorf("GetTokenBalance(%s): %s", addr.Address, err)
+			log.Errorf("GetAddressBalance(%s): %s", addr.Address, err)
 			continue
 		}
-		balances = append(balances, Balance{
-			Assets:         balance.Assets,
-			WalletIndex:    wallet.WalletIndex,
-			CurrencyID:     wallet.CurrencyID,
-			NetworkID:      wallet.NetworkID,
-			DateOfCreation: wallet.DateOfCreation,
-			LastActionTime: wallet.LastActionTime,
-			WalletName:     wallet.WalletName,
+		balances = append(balances, AddressBalance{
+			Amount:       balance.Balance,
+			Address:      addr.Address,
+			AddressIndex: addr.AddressIndex,
 		})
 	}
 	return balances, nil
+}
+
+// ValidatePublicKey validates eos public key
+func ValidatePublicKey(key string) error {
+	if len(key) < 8 { // based on eos-go public key validation
+		return fmt.Errorf("wrong len %d", len(key))
+	}
+	if !strings.HasPrefix(key, "EOS") {
+		return fmt.Errorf("wrong prefix: \"%s\"", key[:3])
+	}
+	return nil
 }
