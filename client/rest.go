@@ -10,6 +10,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -141,6 +142,8 @@ func SetRestHandlers(
 		v1.GET("/account/:currencyid/:networkid/name/:name", restClient.accountCheck)
 		v1.GET("/account/:currencyid/:networkid/key/:public_key", restClient.accountGetByKey)
 		v1.GET("/account/:currencyid/:networkid/price/ram/:ram", restClient.accountPrice)
+		v1.GET("/chain/:currencyid/:networkid/info", restClient.chaininfo)
+
 	}
 	return restClient, nil
 }
@@ -2662,6 +2665,72 @@ func (server *RestClient) accountPrice(ctx *gin.Context) {
 		return
 	default:
 		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": msgErrChainIsNotImplemented,
+		})
+		return
+
+	}
+}
+
+func (server *RestClient) chaininfo(c *gin.Context) {
+	currencyID, networkID, err := getChainID(c)
+	if err != nil {
+		server.log.Errorf("decode currency id %s", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": err.Error(),
+		})
+		return
+	}
+	switch currencyID {
+	case currencies.EOS:
+		var conn *eos.Conn
+		switch networkID {
+		case currencies.Main:
+			conn = server.EOSMain
+		case currencies.Test:
+			conn = server.EOSTest
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrMethodNotImplennted,
+			})
+			return
+		}
+
+		chainState, err := conn.Client.GetChainState(context.Background(), &eospb.Empty{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    http.StatusInternalServerError,
+				"message": http.StatusText(http.StatusInternalServerError),
+			})
+			return
+		}
+
+		chainTime := time.Unix(chainState.GetHeadBlockTime(), 0).UTC().Format(time.RFC3339)
+		refBlockPrefix := binary.LittleEndian.Uint32(chainState.GetHeadBlockId()[8:16])
+		blockNumber := chainState.GetHeadBlockNum()
+
+		type State struct {
+			ChainTime      string `json:"chainTime"`
+			RefBlockPrefix uint32 `json:"refBlockPrefix"`
+			BlockNumber    uint32 `json:"blockNumber"`
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusOK,
+			"message": http.StatusText(http.StatusInternalServerError),
+			"state": State{
+				ChainTime:      chainTime,
+				RefBlockPrefix: refBlockPrefix,
+				BlockNumber:    blockNumber,
+			},
+		})
+		return
+
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    http.StatusBadRequest,
 			"message": msgErrChainIsNotImplemented,
 		})
