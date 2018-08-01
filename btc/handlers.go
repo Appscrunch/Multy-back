@@ -80,7 +80,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 	go func() {
 		stream, err := cli.EventNewBlock(context.Background(), &pb.Empty{})
 		if err != nil {
-			log.Errorf("setGRPCHandlers: cli.EventNewBlock: %s", err.Error())
+			// log.Errorf("setGRPCHandlers: cli.EventNewBlock: %s", err.Error())
 			// return nil, err
 		}
 

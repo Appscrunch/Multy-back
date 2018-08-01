@@ -92,10 +92,11 @@ func Init(conf *Configuration) (*Multy, error) {
 
 	multy.ETH = ethCli
 	log.Infof(" ETH initialization done on %v √", ethVer)
+
 	eosConn, err := eos.NewConn(&conf.Database, conf.SupportedNodes, conf.NSQAddress)
 	eosVersion, err := eosConn.Client.ServiceInfo(context.Background(), &eospb.Empty{})
-	log.Infof(" EOS initialization done on %v √", eosVersion)
 	multy.EOS = eosConn
+	log.Infof(" EOS initialization done on %v √", eosVersion)
 
 	//users data set
 	sv, err := multy.SetUserData(multy.userStore, conf.SupportedNodes)

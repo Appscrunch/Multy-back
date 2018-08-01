@@ -7,7 +7,6 @@ package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -71,8 +70,8 @@ func newEmptyTx(userID string) store.TxRecord {
 	}
 }
 
-func newWebSocketConn(addr string) (*websocket.Conn, error) {
-	fmt.Printf("addr=%s", addr)
+func newWebSocketConn(addr string, log slf.StructuredLogger) (*websocket.Conn, error) {
+	log.Debugf("addr = %s", addr)
 	c, _, err := websocket.DefaultDialer.Dial(addr, nil)
 	if err != nil {
 		return nil, err
@@ -90,13 +89,14 @@ func reconnectWebSocketConn(addr string, log slf.StructuredLogger) (*websocket.C
 	)
 
 	for {
-		c, err = newWebSocketConn(addr)
+		c, err = newWebSocketConn(addr, log)
 		if err == nil {
 			return c, nil
 		}
 
 		log.Errorf("reconnecting: %s", err)
 		log.Errorf("secToRecon=%f/numOfRecon=%d", secToRecon.Seconds(), numOfRecon)
+
 		ticker := time.NewTicker(secToRecon)
 		select {
 		case _ = <-ticker.C:
