@@ -1,8 +1,8 @@
 /*
-Copyright 2018 Idealnaya rabota LLC
-Licensed under Multy.io license.
-See LICENSE for details
-*/
+ * Copyright 2018 Idealnaya rabota LLC
+ * Licensed under Multy.io license.
+ * See LICENSE for details
+ */
 package client
 
 import (
@@ -26,6 +26,8 @@ import (
 	"github.com/Multy-io/Multy-back/store"
 	"github.com/jekabolt/slf"
 
+	eospb "github.com/Multy-io/Multy-EOS-node-service/proto"
+	"github.com/Multy-io/Multy-back/eos"
 	btcpb "github.com/Multy-io/Multy-back/node-streamer/btc"
 	ethpb "github.com/Multy-io/Multy-back/node-streamer/eth"
 	"github.com/btcsuite/btcd/rpcclient"
@@ -76,6 +78,7 @@ type RestClient struct {
 
 	BTC            *btc.BTCConn
 	ETH            *eth.ETHConn
+	EOS            *eos.Conn
 	MultyVerison   store.ServerConfig
 	Secretkey      string
 	DeviceVersions store.Versions
@@ -91,6 +94,7 @@ func SetRestHandlers(
 	donationAddresses []store.DonationInfo,
 	btc *btc.BTCConn,
 	eth *eth.ETHConn,
+	eos *eos.Conn,
 	mv store.ServerConfig,
 	secretkey string,
 	deviceVersions store.Versions,
@@ -101,6 +105,7 @@ func SetRestHandlers(
 		donationAddresses: donationAddresses,
 		BTC:               btc,
 		ETH:               eth,
+		EOS:               eos,
 		MultyVerison:      mv,
 		Secretkey:         secretkey,
 		DeviceVersions:    deviceVersions,
@@ -127,6 +132,12 @@ func SetRestHandlers(
 		v1.POST("/wallet/name", restClient.changeWalletName())
 		v1.POST("/resync/wallet/:currencyid/:networkid/:walletindex", restClient.resyncWallet())
 		v1.GET("/exchange/changelly/list", restClient.changellyListCurrencies())
+
+		// Only EOS for now
+		v1.POST("/account/create", restClient.accountCreate)
+		v1.POST("/account/check", restClient.accountCheck)
+		v1.POST("/account/price", restClient.accountPrice)
+		v1.POST("/account/get_by_key", restClient.accountGetByKey)
 	}
 	return restClient, nil
 }
@@ -691,6 +702,31 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 
 			code = http.StatusOK
 			message = http.StatusText(http.StatusOK)
+
+		case currencies.EOS:
+			wallet := user.GetWallet(networkid, currencyId, walletIndex)
+			for _, address := range wallet.Adresses {
+				balance, err := restClient.EOS.Client.GetAddressBalance(c, &eospb.Account{
+					Name: address.Address,
+				})
+				if err != nil {
+					restClient.log.Errorf("get balance: %s\t[addr=%s]", err, c.Request.RemoteAddr)
+					c.JSON(http.StatusBadRequest, gin.H{
+						"code":    http.StatusBadRequest,
+						"message": msgErrAdressBalance,
+					})
+					return
+				}
+				// Main EOS token has 4 digit precision
+				if balance.Balance != "0.0000 EOS" {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"code":    http.StatusBadRequest,
+						"message": msgErrWalletNonZeroBalance,
+					})
+					return
+				}
+			}
+
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
@@ -1240,6 +1276,24 @@ func (restClient *RestClient) sendRawHDTransaction() gin.HandlerFunc {
 				})
 				return
 			}
+		case currencies.EOS:
+			// TODO: check if addr is watched?
+			resp, err := restClient.EOS.Client.SendRawTx(c, &eospb.RawTx{
+				Transaction: []byte(rawTx.Transaction),
+			})
+			if err != nil {
+				restClient.log.Errorf("sendRawHDTransaction: eos: %s", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code":    http.StatusInternalServerError,
+					"message": err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"code":    http.StatusOK,
+				"message": resp.TransactionId,
+			})
+			return
 
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -1504,6 +1558,33 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 			})
 
 			av = []ETHAddressVerbose{}
+		case currencies.EOS:
+
+			user, err := restClient.userStore.GetUserByToken(token)
+			if err != nil {
+				restClient.log.Errorf("getAllWalletsVerbose: restClient.userStore.FindUser: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
+			}
+
+			wallet := user.GetWallet(networkId, currencyId, walletIndex)
+
+			balances, err := restClient.EOS.GetBalance(c, wallet)
+			if err != nil {
+				restClient.log.Errorf("getWalletVerbose: %s\t [addr=%s]", err, c.Request.RemoteAddr)
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"message": msgErrNoWallet,
+					"wallet":  wv,
+				})
+				return
+			}
+			wv = append(wv, balances)
+			c.JSON(http.StatusOK, gin.H{
+				"code":    http.StatusOK,
+				"message": http.StatusText(http.StatusOK),
+				"wallet":  wv,
+			})
+			return
+
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":    http.StatusBadRequest,
@@ -1806,6 +1887,24 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 					Pending:        pending,
 				})
 				av = []ETHAddressVerbose{}
+			case currencies.EOS:
+				balances, err := restClient.EOS.GetBalance(c, wallet)
+				if err != nil {
+					restClient.log.Errorf("getWalletVerbose: %s\t [addr=%s]", err, c.Request.RemoteAddr)
+					c.JSON(http.StatusBadRequest, gin.H{
+						"code":    http.StatusBadRequest,
+						"message": msgErrNoWallet,
+						"wallet":  wv,
+					})
+					return
+				}
+				wv = append(wv, balances)
+				c.JSON(http.StatusOK, gin.H{
+					"code":    http.StatusOK,
+					"message": http.StatusText(http.StatusOK),
+					"wallet":  wv,
+				})
+				return
 			default:
 
 			}
@@ -2048,6 +2147,15 @@ func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
 				}
 			}
 
+		case currencies.EOS:
+			history, err := restClient.EOS.GetActionHistory(c, user.UserID, walletIndex, currencyId, networkid)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code":    http.StatusInternalServerError,
+					"message": http.StatusText(http.StatusInternalServerError),
+				})
+				return
+			}
 			c.JSON(http.StatusOK, gin.H{
 				"code":    http.StatusOK,
 				"message": http.StatusText(http.StatusOK),
@@ -2195,6 +2303,15 @@ func (restClient *RestClient) resyncWallet() gin.HandlerFunc {
 			if networkID == currencies.ETHTest {
 
 			}
+		case currencies.EOS:
+			for _, address := range walletToResync.Adresses {
+				_, err := restClient.EOS.Client.ResyncAddress(c, &eospb.AddressToResync{
+					Address: address.Address,
+				})
+				if err != nil {
+					restClient.log.Errorf("eos resync: %s", err)
+				}
+			}
 		}
 
 	}
@@ -2257,4 +2374,158 @@ type ChangellyReqest struct {
 	ID      int      `json:"id"`
 	Method  string   `json:"method"`
 	Params  []string `json:"params"`
+}
+
+// accountCheck checks if account exists
+// and returns account info if it does
+func (server *RestClient) accountCheck(ctx *gin.Context) {
+	_, err := getToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": msgErrHeaderError,
+		})
+		return
+	}
+	var account eospb.Account
+	err = decodeBody(ctx, &account)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": msgErrRequestBodyError,
+		})
+		return
+	}
+	info, err := server.EOS.Client.AccountCheck(ctx, &account)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": http.StatusText(http.StatusInternalServerError),
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, info)
+	return
+}
+
+// AccountCreateRequest is a struct for
+// client to request EOS account creation
+// basic account creation parameters
+// are extended with multy storage specific ones
+type accountCreateRequest struct {
+	// TODO: move away from this package
+	WalletParams
+	eospb.AccountCreateReq
+}
+
+// accountCreate creates account and wallet for it
+func (server *RestClient) accountCreate(ctx *gin.Context) {
+	token, err := getToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": msgErrHeaderError,
+		})
+		return
+	}
+	var req accountCreateRequest
+	decodeBody(ctx, &req)
+	_, err = server.EOS.Client.AccountCreate(ctx, &req.AccountCreateReq)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": http.StatusText(http.StatusInternalServerError),
+		})
+		return
+	}
+	// add freshly created account to a wallet
+	err = createCustomWallet(req.WalletParams, token, server, ctx)
+	if err != nil {
+		// TODO: create wallet error, need to preserve created account
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": http.StatusText(http.StatusInternalServerError),
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    http.StatusOK,
+		"message": http.StatusText(http.StatusOK),
+	})
+}
+
+// account price returns price for account creation
+func (server *RestClient) accountPrice(ctx *gin.Context) {
+	type resources struct {
+		RAM uint64  `json:"ram"`
+		CPU float64 `json:"cpu"`
+		NET float64 `json:"net"`
+	}
+	var res resources
+	err := decodeBody(ctx, &res)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": msgErrRequestBodyError,
+		})
+		return
+	}
+	price, err := server.EOS.Client.GetRAMPrice(ctx, &eospb.Empty{})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": http.StatusText(http.StatusInternalServerError),
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":  http.StatusOK,
+		"price": (price.Price * float64(res.RAM)) + res.CPU + res.NET,
+	})
+	return
+}
+func (server *RestClient) accountGetByKey(ctx *gin.Context) {
+	var key eospb.PublicKey
+	err := decodeBody(ctx, &key)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": msgErrRequestBodyError,
+		})
+		return
+	}
+
+	if key.PublicKey == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": msgErrRequestBodyError,
+		})
+		return
+	}
+	accounts, err := server.EOS.Client.GetKeyAccounts(ctx, &key)
+	if err != nil {
+		server.log.Errorf("eos get_key_accounts: %s", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": http.StatusText(http.StatusInternalServerError),
+		})
+		return
+	}
+	if accounts == nil {
+		server.log.Errorf("eos get_key_accounts: %s", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": http.StatusText(http.StatusInternalServerError),
+		})
+		return
+	}
+
+	if accounts.AccountNames == nil {
+		accounts.AccountNames = make([]string, 0)
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":          http.StatusOK,
+		"account_names": accounts.AccountNames,
+	})
 }

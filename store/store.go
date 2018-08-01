@@ -1,8 +1,8 @@
 /*
-Copyright 2018 Idealnaya rabota LLC
-Licensed under Multy.io license.
-See LICENSE for details
-*/
+ * Copyright 2018 Idealnaya rabota LLC
+ * Licensed under Multy.io license.
+ * See LICENSE for details
+ */
 package store
 
 import (
@@ -53,6 +53,9 @@ type Conf struct {
 	TableMempoolRatesETHTest string
 	TableTxsDataETHTest      string
 
+	// EOS main
+	TableTxsDataEOSMain string
+
 	//RestoreState
 	DBRestoreState string
 	TableState     string
@@ -64,6 +67,7 @@ type Conf struct {
 
 type UserStore interface {
 	GetUserByDevice(device bson.M, user *User)
+	GetUserByToken(token string) (User, error)
 	Update(sel, update bson.M) error
 	Insert(user User) error
 	Close() error
@@ -403,4 +407,10 @@ func (mStore *MongoUserStore) GetAllWalletEthTransactions(userid string, currenc
 func (mStore *MongoUserStore) Close() error {
 	mStore.session.Close()
 	return nil
+}
+
+func (mStore *MongoUserStore) GetUserByToken(token string) (User, error) {
+	var user User
+	err := mStore.FindUser(bson.M{"devices.JWT": token}, &user)
+	return user, err
 }

@@ -1,8 +1,8 @@
 /*
-Copyright 2018 Idealnaya rabota LLC
-Licensed under Multy.io license.
-See LICENSE for details
-*/
+ * Copyright 2018 Idealnaya rabota LLC
+ * Licensed under Multy.io license.
+ * See LICENSE for details
+ */
 package multyback
 
 import (
@@ -10,9 +10,11 @@ import (
 	"fmt"
 
 	// exchanger "github.com/Multy-io/Multy-back-exchange-service"
+	eospb "github.com/Multy-io/Multy-EOS-node-service/proto"
 	"github.com/Multy-io/Multy-back/btc"
 	"github.com/Multy-io/Multy-back/client"
 	"github.com/Multy-io/Multy-back/currencies"
+	"github.com/Multy-io/Multy-back/eos"
 	"github.com/Multy-io/Multy-back/eth"
 	btcpb "github.com/Multy-io/Multy-back/node-streamer/btc"
 	ethpb "github.com/Multy-io/Multy-back/node-streamer/eth"
@@ -52,6 +54,7 @@ type Multy struct {
 
 	BTC *btc.BTCConn
 	ETH *eth.ETHConn
+	EOS *eos.Conn
 }
 
 // Init initializes Multy instance
@@ -86,8 +89,13 @@ func Init(conf *Configuration) (*Multy, error) {
 		return nil, fmt.Errorf("Init: btc.InitHandlers: %s", err.Error())
 	}
 	ethVer, err := ethCli.CliMain.ServiceInfo(context.Background(), &ethpb.Empty{})
+
 	multy.ETH = ethCli
 	log.Infof(" ETH initialization done on %v √", ethVer)
+	eosConn, err := eos.NewConn(&conf.Database, conf.SupportedNodes, conf.NSQAddress)
+	eosVersion, err := eosConn.Client.ServiceInfo(context.Background(), &eospb.Empty{})
+	log.Infof(" EOS initialization done on %v √", eosVersion)
+	multy.EOS = eosConn
 
 	//users data set
 	sv, err := multy.SetUserData(multy.userStore, conf.SupportedNodes)
@@ -263,6 +271,7 @@ func (multy *Multy) initHttpRoutes(conf *Configuration) error {
 		conf.DonationAddresses,
 		multy.BTC,
 		multy.ETH,
+		multy.EOS,
 		conf.MultyVerison,
 		conf.Secretkey,
 		conf.DeviceVersions,

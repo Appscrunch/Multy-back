@@ -13,3 +13,5 @@ rpc.cert
 data-db
 
 .env
+
+.idea
