@@ -1635,7 +1635,7 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 				Balance: eos.TotalBalance(balances),
 				// TODO make pending based on irreversible block num
 				Pending:        false,
-				PendingBalance: "",
+				PendingBalance: "0",
 			})
 			c.JSON(http.StatusOK, gin.H{
 				"code":    http.StatusOK,
@@ -1982,7 +1982,7 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 					Balance: eos.TotalBalance(balances),
 					// TODO make pending based on irreversible block num
 					Pending:        false,
-					PendingBalance: "",
+					PendingBalance: "0",
 				})
 			default:
 
