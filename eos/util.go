@@ -48,11 +48,20 @@ func (conn *Conn) GetBalance(ctx context.Context, wallet store.Wallet) ([]Addres
 		//})
 		if err != nil {
 			// skip address log error
-			log.Errorf("GetAddressBalance(%s): %s", addr.Address, err)
+			log.Errorf("GetTokenBalance(%s): %s", addr.Address, err)
 			continue
 		}
+		if len(balance.Assets) == 0 {
+			log.Errorf("GetTokenBalance(%s): no assets", addr.Address)
+		}
+		var amount int64
+		for _, asset := range balance.Assets {
+			if asset.Symbol == "EOS" {
+				amount = asset.GetAmount()
+			}
+		}
 		balances = append(balances, AddressBalance{
-			Amount:       balance.Assets[0].Amount,
+			Amount:       amount,
 			Address:      addr.Address,
 			AddressIndex: addr.AddressIndex,
 		})
@@ -69,4 +78,21 @@ func ValidatePublicKey(key string) error {
 		return fmt.Errorf("wrong prefix: \"%s\"", key[:3])
 	}
 	return nil
+}
+
+// TotalBalance gets balance of all the addresses and presents it in string
+func TotalBalance(balances []AddressBalance) string {
+	var totalAmount int64
+	for _, balance := range balances {
+		totalAmount += balance.Amount
+	}
+	strInt := fmt.Sprintf("%d", totalAmount)
+	if len(strInt) < int(4+1) {
+		// prepend `0` for the difference:
+		strInt = strings.Repeat("0", int(4+1)-len(strInt)) + strInt
+	}
+
+	result := strInt[:len(strInt)-4] + "." + strInt[len(strInt)-4:]
+
+	return fmt.Sprintf("%s %s", result, "EOS")
 }
