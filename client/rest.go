@@ -1632,6 +1632,11 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 				WalletName:     wallet.WalletName,
 				DateOfCreation: wallet.DateOfCreation,
 				VerboseAddress: balances,
+				// TODO make balance
+				Balance: "",
+				// TODO make pending based on irreversible block num
+				Pending:        false,
+				PendingBalance: "",
 			})
 			c.JSON(http.StatusOK, gin.H{
 				"code":    http.StatusOK,
@@ -1975,6 +1980,11 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 					WalletName:     wallet.WalletName,
 					DateOfCreation: wallet.DateOfCreation,
 					VerboseAddress: balances,
+					// TODO make balance
+					Balance: "",
+					// TODO make pending based on irreversible block num
+					Pending:        false,
+					PendingBalance: "",
 				})
 			default:
 

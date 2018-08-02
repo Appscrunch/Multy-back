@@ -22,10 +22,13 @@ type Wallet struct {
 	LastActionTime int64            `json:"lastactiontime"`
 	DateOfCreation int64            `json:"dateofcreation"`
 	VerboseAddress []AddressBalance `json:"addresses"`
+	PendingBalance string           `json:"pendingbalance"`
+	Balance        string           `json:"balance"`
+	Pending        bool             `json:"pending"`
 }
 
 type AddressBalance struct {
-	Amount       string `json:"amount"`
+	Amount       int64  `json:"amount"`
 	Address      string `json:"address"`
 	AddressIndex int    `json:"addressindex"`
 }
@@ -36,16 +39,20 @@ func (conn *Conn) GetBalance(ctx context.Context, wallet store.Wallet) ([]Addres
 	}
 	balances := make([]AddressBalance, 0, len(wallet.Adresses))
 	for _, addr := range wallet.Adresses {
-		balance, err := conn.Client.GetAddressBalance(ctx, &proto.Account{
-			Name: addr.Address,
+		balance, err := conn.Client.GetTokenBalance(ctx, &proto.BalanceReq{
+			Account: addr.Address,
+			Symbol:  "EOS",
 		})
+		//balance, err := conn.Client.GetAddressBalance(ctx, &proto.Account{
+		//	Name: addr.Address,
+		//})
 		if err != nil {
 			// skip address log error
 			log.Errorf("GetAddressBalance(%s): %s", addr.Address, err)
 			continue
 		}
 		balances = append(balances, AddressBalance{
-			Amount:       balance.Balance,
+			Amount:       balance.Assets[0].Amount,
 			Address:      addr.Address,
 			AddressIndex: addr.AddressIndex,
 		})
