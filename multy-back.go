@@ -96,7 +96,16 @@ func Init(conf *Configuration) (*Multy, error) {
 
 	for _, node := range conf.SupportedNodes {
 		if node.СurrencyID == currencies.EOS {
-			eosConn, err := eos.NewConn(&conf.Database, node.GRPCUrl, conf.NSQAddress)
+			var txTable string
+			switch node.NetworkID {
+			case currencies.Main:
+				txTable = conf.Database.TableTxsDataEOSMain
+			case currencies.Test:
+				txTable = conf.Database.TableTxsDataEOSTest
+			default:
+				return nil, fmt.Errorf("unknown eos network id: %d", node.NetworkID)
+			}
+			eosConn, err := eos.NewConn(&conf.Database, node.GRPCUrl, conf.NSQAddress, txTable)
 			if err != nil {
 				return nil, fmt.Errorf("eos new connection: %s")
 			}
@@ -111,8 +120,6 @@ func Init(conf *Configuration) (*Multy, error) {
 			case currencies.Test:
 				multy.EOSTest = eosConn
 				log.Infof("EOS testnet initialization done on %v √", eosVersion)
-			default:
-				log.Errorf("unknown eos network id: %d", node.NetworkID)
 			}
 		}
 	}

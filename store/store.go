@@ -55,6 +55,7 @@ type Conf struct {
 
 	// EOS main
 	TableTxsDataEOSMain string
+	TableTxsDataEOSTest string
 
 	//RestoreState
 	DBRestoreState string

@@ -39,7 +39,7 @@ type Conn struct {
 }
 
 // NewConn creates all the connections
-func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string) (*Conn, error) {
+func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string, txTable string) (*Conn, error) {
 	config := nsq.NewConfig()
 	producer, err := nsq.NewProducer(nsqAddress, config)
 	if err != nil {
@@ -65,7 +65,7 @@ func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string) (*Conn, erro
 		//TODO: chanel buffering?
 		WatchAddresses: make(chan proto.WatchAddress),
 		restoreState:   dbConn.DB(dbConf.DBRestoreState).C(dbConf.TableState),
-		txStore:        dbConn.DB(dbConf.DBTx).C(dbConf.TableTxsDataEOSMain),
+		txStore:        dbConn.DB(dbConf.DBTx).C(txTable),
 		nsq:            producer,
 		networkID:      currencies.Main,
 	}

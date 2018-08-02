@@ -1632,7 +1632,7 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 				WalletName:     wallet.WalletName,
 				DateOfCreation: wallet.DateOfCreation,
 				VerboseAddress: balances,
-				Balance: eos.TotalBalance(balances),
+				Balance:        eos.TotalBalance(balances),
 				// TODO make pending based on irreversible block num
 				Pending:        false,
 				PendingBalance: "0",
@@ -1979,7 +1979,7 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 					WalletName:     wallet.WalletName,
 					DateOfCreation: wallet.DateOfCreation,
 					VerboseAddress: balances,
-					Balance: eos.TotalBalance(balances),
+					Balance:        eos.TotalBalance(balances),
 					// TODO make pending based on irreversible block num
 					Pending:        false,
 					PendingBalance: "0",
