@@ -2244,6 +2244,7 @@ func (restClient *RestClient) getWalletTransactionsHistory() gin.HandlerFunc {
 			}
 			history, err := conn.GetActionHistory(c, user.UserID, walletIndex, currencyId, networkid)
 			if err != nil {
+				restClient.log.Errorf("GetActionHistory %s", err)
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"code":    http.StatusInternalServerError,
 					"message": http.StatusText(http.StatusInternalServerError),
