@@ -86,13 +86,8 @@ func TotalBalance(balances []AddressBalance) string {
 	for _, balance := range balances {
 		totalAmount += balance.Amount
 	}
-	strInt := fmt.Sprintf("%d", totalAmount)
-	if len(strInt) < int(4+1) {
-		// prepend `0` for the difference:
-		strInt = strings.Repeat("0", int(4+1)-len(strInt)) + strInt
-	}
 
-	result := strInt[:len(strInt)-4] + "." + strInt[len(strInt)-4:]
+	result := fmt.Sprintf("%d", totalAmount)
 
 	return result
 }
