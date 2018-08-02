@@ -724,27 +724,36 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 				return
 			}
 			wallet := user.GetWallet(networkid, currencyId, walletIndex)
-			for _, address := range wallet.Adresses {
-				balance, err := conn.Client.GetAddressBalance(c, &eospb.Account{
-					Name: address.Address,
+			balance, err := conn.GetBalance(c, wallet)
+			if err != nil {
+				restClient.log.Errorf("get balance: %s\t[addr=%s]", err, c.Request.RemoteAddr)
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"message": msgErrAdressBalance,
 				})
-				if err != nil {
-					restClient.log.Errorf("get balance: %s\t[addr=%s]", err, c.Request.RemoteAddr)
-					c.JSON(http.StatusBadRequest, gin.H{
-						"code":    http.StatusBadRequest,
-						"message": msgErrAdressBalance,
-					})
-					return
-				}
-				// Main EOS token has 4 digit precision
-				if balance.Balance != "0.0000 EOS" {
-					c.JSON(http.StatusBadRequest, gin.H{
-						"code":    http.StatusBadRequest,
-						"message": msgErrWalletNonZeroBalance,
-					})
-					return
-				}
+				return
 			}
+			if eos.TotalBalance(balance) != "0" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"message": msgErrWalletNonZeroBalance,
+				})
+				return
+			}
+			err = restClient.userStore.DeleteWallet(user.UserID, walletIndex, currencyId, networkid)
+			if err != nil {
+				restClient.log.Errorf("deleteWallet: restClient.userStore.Update: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusInternalServerError,
+					"message": msgErrNoWallet,
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"code": http.StatusOK,
+				"message": http.StatusText(http.StatusOK),
+			})
+			return
 
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{
