@@ -94,5 +94,5 @@ func TotalBalance(balances []AddressBalance) string {
 
 	result := strInt[:len(strInt)-4] + "." + strInt[len(strInt)-4:]
 
-	return fmt.Sprintf("%s %s", result, "EOS")
+	return result
 }
