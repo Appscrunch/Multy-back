@@ -53,6 +53,7 @@ func (conn *Conn) GetBalance(ctx context.Context, wallet store.Wallet) ([]Addres
 		}
 		if len(balance.Assets) == 0 {
 			log.Errorf("GetTokenBalance(%s): no assets", addr.Address)
+			continue
 		}
 		var amount int64
 		for _, asset := range balance.Assets {

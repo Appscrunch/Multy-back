@@ -249,12 +249,28 @@ func createCustomWallet(wp WalletParams, token string, restClient *RestClient, c
 		return err
 	}
 
-	for _, wallet := range user.Wallets {
-		if wallet.CurrencyID == wp.CurrencyID && wallet.NetworkID == wp.NetworkID && wallet.WalletIndex == wp.WalletIndex {
-			err = errors.New(msgErrWalletIndex)
-			return err
+	if wp.CurrencyID == currencies.EOS {
+		for _, wallet := range user.Wallets {
+			if len(wallet.Adresses) > 0 {
+				if wallet.CurrencyID == wp.CurrencyID &&
+					wallet.NetworkID == wp.NetworkID &&
+					wallet.WalletIndex == wp.WalletIndex &&
+					wallet.Adresses[0].Address == wp.Address {
+
+					err = errors.New(msgErrWalletIndex)
+					return err
+				}
+			}
+		}
+	} else {
+		for _, wallet := range user.Wallets {
+			if wallet.CurrencyID == wp.CurrencyID && wallet.NetworkID == wp.NetworkID && wallet.WalletIndex == wp.WalletIndex {
+				err = errors.New(msgErrWalletIndex)
+				return err
+			}
 		}
 	}
+
 
 	sel := bson.M{"devices.JWT": token}
 	wallet := createWallet(wp.CurrencyID, wp.NetworkID, wp.Address, wp.AddressIndex, wp.WalletIndex, wp.WalletName)
