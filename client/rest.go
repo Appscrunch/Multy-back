@@ -750,7 +750,7 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{
-				"code": http.StatusOK,
+				"code":    http.StatusOK,
 				"message": http.StatusText(http.StatusOK),
 			})
 			return
@@ -1603,7 +1603,7 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 
 			user, err := restClient.userStore.GetUserByToken(token)
 			if err != nil {
-				restClient.log.Errorf("getAllWalletsVerbose: restClient.userStore.FindUser: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
+				restClient.log.Errorf("getWalletVerbose: restClient.userStore.FindUser: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
 			}
 
 			wallet := user.GetWallet(networkId, currencyId, walletIndex)
@@ -1623,29 +1623,18 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 				return
 			}
 
-			balances, err := conn.GetBalance(c, wallet)
+			walletInfo, err := conn.GetWalleVerbose(c, wallet)
 			if err != nil {
-				restClient.log.Errorf("getWalletVerbose: %s\t [addr=%s]", err, c.Request.RemoteAddr)
-				c.JSON(http.StatusBadRequest, gin.H{
-					"code":    http.StatusBadRequest,
-					"message": msgErrNoWallet,
+				restClient.log.Errorf("getWalletVerbose: %s", err)
+				c.JSON(code, gin.H{
+					"code":    http.StatusInternalServerError,
+					"message": err.Error(),
 					"wallet":  wv,
 				})
 				return
 			}
-			wv = append(wv, eos.Wallet{
-				LastActionTime: wallet.LastActionTime,
-				WalletIndex:    wallet.WalletIndex,
-				NetworkID:      wallet.NetworkID,
-				CurrencyID:     wallet.CurrencyID,
-				WalletName:     wallet.WalletName,
-				DateOfCreation: wallet.DateOfCreation,
-				VerboseAddress: balances,
-				Balance:        eos.TotalBalance(balances),
-				// TODO make pending based on irreversible block num
-				Pending:        false,
-				PendingBalance: "0",
-			})
+
+			wv = append(wv, walletInfo)
 			c.JSON(http.StatusOK, gin.H{
 				"code":    http.StatusOK,
 				"message": http.StatusText(http.StatusOK),
@@ -1970,29 +1959,17 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 					return
 				}
 
-				balances, err := conn.GetBalance(c, wallet)
+				walletVerbose, err := conn.GetWalleVerbose(c, wallet)
 				if err != nil {
-					restClient.log.Errorf("getWalletVerbose: %s\t [addr=%s]", err, c.Request.RemoteAddr)
-					c.JSON(http.StatusBadRequest, gin.H{
-						"code":    http.StatusBadRequest,
-						"message": msgErrNoWallet,
+					restClient.log.Errorf("getWalletVerbose: %s", err)
+					c.JSON(code, gin.H{
+						"code":    http.StatusInternalServerError,
+						"message": err.Error(),
 						"wallet":  wv,
 					})
 					return
 				}
-				wv = append(wv, eos.Wallet{
-					LastActionTime: wallet.LastActionTime,
-					WalletIndex:    wallet.WalletIndex,
-					NetworkID:      wallet.NetworkID,
-					CurrencyID:     wallet.CurrencyID,
-					WalletName:     wallet.WalletName,
-					DateOfCreation: wallet.DateOfCreation,
-					VerboseAddress: balances,
-					Balance:        eos.TotalBalance(balances),
-					// TODO make pending based on irreversible block num
-					Pending:        false,
-					PendingBalance: "0",
-				})
+				wv = append(wv, walletVerbose)
 			default:
 
 			}

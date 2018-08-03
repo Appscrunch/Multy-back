@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/Multy-io/Multy-EOS-node-service/proto"
 	"github.com/Multy-io/Multy-back/store"
+	"github.com/pkg/errors"
 	"strings"
 )
 
@@ -25,6 +26,7 @@ type Wallet struct {
 	PendingBalance string           `json:"pendingbalance"`
 	Balance        string           `json:"balance"`
 	Pending        bool             `json:"pending"`
+	OwnerKey       string           `json:"ownerkey"`
 }
 
 type AddressBalance struct {
@@ -43,9 +45,6 @@ func (conn *Conn) GetBalance(ctx context.Context, wallet store.Wallet) ([]Addres
 			Account: addr.Address,
 			Symbol:  "EOS",
 		})
-		//balance, err := conn.Client.GetAddressBalance(ctx, &proto.Account{
-		//	Name: addr.Address,
-		//})
 		if err != nil {
 			// skip address log error
 			log.Errorf("GetTokenBalance(%s): %s", addr.Address, err)
@@ -90,4 +89,36 @@ func TotalBalance(balances []AddressBalance) string {
 	result := fmt.Sprintf("%d", totalAmount)
 
 	return result
+}
+
+func (conn *Conn) GetWalleVerbose(ctx context.Context, wallet store.Wallet) (res Wallet, err error) {
+	balances, err := conn.GetBalance(ctx, wallet)
+	if err != nil {
+		return res, errors.Wrap(err, "eos.GetBalance")
+	}
+
+	var ownerKey string
+	if len(wallet.Adresses) > 0 {
+		info, err := conn.Client.AccountCheck(ctx, &proto.Account{Name: wallet.Adresses[0].Address})
+		if err != nil {
+			return res, errors.Wrap(err, "eos.AccountCheck")
+		}
+		ownerKey = info.PublicKey
+	}
+
+	res = Wallet{
+		LastActionTime: wallet.LastActionTime,
+		WalletIndex:    wallet.WalletIndex,
+		NetworkID:      wallet.NetworkID,
+		CurrencyID:     wallet.CurrencyID,
+		WalletName:     wallet.WalletName,
+		DateOfCreation: wallet.DateOfCreation,
+		VerboseAddress: balances,
+		Balance:        TotalBalance(balances),
+		OwnerKey:       ownerKey,
+		// TODO make pending based on irreversible block num
+		Pending:        false,
+		PendingBalance: "0",
+	}
+	return res, nil
 }
