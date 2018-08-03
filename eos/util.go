@@ -27,6 +27,7 @@ type Wallet struct {
 	Balance        string           `json:"balance"`
 	Pending        bool             `json:"pending"`
 	OwnerKey       string           `json:"ownerkey"`
+	ActiveKey      string           `json:"activekey"`
 }
 
 type AddressBalance struct {
@@ -97,13 +98,13 @@ func (conn *Conn) GetWalleVerbose(ctx context.Context, wallet store.Wallet) (res
 		return res, errors.Wrap(err, "eos.GetBalance")
 	}
 
-	var ownerKey string
+	var ownerKey, activeKey string
 	if len(wallet.Adresses) > 0 {
 		info, err := conn.Client.AccountCheck(ctx, &proto.Account{Name: wallet.Adresses[0].Address})
 		if err != nil {
 			return res, errors.Wrap(err, "eos.AccountCheck")
 		}
-		ownerKey = info.PublicKey
+		ownerKey, activeKey = info.OwnerKey, info.ActiveKey
 	}
 
 	res = Wallet{
@@ -116,6 +117,7 @@ func (conn *Conn) GetWalleVerbose(ctx context.Context, wallet store.Wallet) (res
 		VerboseAddress: balances,
 		Balance:        TotalBalance(balances),
 		OwnerKey:       ownerKey,
+		ActiveKey:      activeKey,
 		// TODO make pending based on irreversible block num
 		Pending:        false,
 		PendingBalance: "0",
