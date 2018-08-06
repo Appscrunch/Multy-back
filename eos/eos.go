@@ -16,11 +16,11 @@ import (
 	"github.com/bitly/go-nsq"
 	"github.com/gin-gonic/gin/json"
 	"github.com/jekabolt/slf"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"io"
-	"strings"
 )
 
 var log = slf.WithContext("eos")
@@ -73,16 +73,6 @@ func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string, txTable stri
 	conn.runAsyncHandlers()
 
 	return conn, nil
-}
-
-// getGrpc creates grpc connection to the corresponding node service
-func getGrpc(nodes []store.CoinType, currencyID, networkID int) (*grpc.ClientConn, error) {
-	for _, ct := range nodes {
-		if ct.СurrencyID == currencyID && ct.NetworkID == networkID {
-			return grpc.Dial(ct.GRPCUrl, grpc.WithInsecure())
-		}
-	}
-	return nil, fmt.Errorf("no such coin in config")
 }
 
 // runAsyncHandlers starts async events goroutines
@@ -189,6 +179,12 @@ func (conn *Conn) newTxHandler() {
 
 // saveActionRecord updates db with action data
 func (conn *Conn) saveActionRecord(action *proto.Action) error {
+	log.Debugf("new action for %s", action.UserID)
+	stored, err := conn.ActionToHistoryRecord(action)
+	if err != nil {
+		log.Errorf("save action: %s", err)
+		return err
+	}
 	sel := bson.M{
 		"user_id":        action.UserID,
 		"wallet_index":   action.WalletIndex,
@@ -196,33 +192,72 @@ func (conn *Conn) saveActionRecord(action *proto.Action) error {
 		"action_index":   action.ActionIndex,
 	}
 
-	var stored proto.Action
-	err := conn.txStore.Find(sel).One(&stored)
+	err = conn.txStore.Find(sel).One(stored)
 	if err == mgo.ErrNotFound {
-		err = conn.txStore.Insert(action)
+		err = conn.txStore.Insert(*stored)
 	}
 	// node service fetches new blocks
 	// so no need for db update
 	return err
 }
 
+func (conn *Conn) ActionToHistoryRecord(action *proto.Action) (*store.TransactionETH, error) {
+	info, err := conn.Client.GetChainState(context.TODO(), &proto.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	var status int
+	if action.From == action.Address {
+		if info.LastIrreversibleBlockNum >= action.BlockNum {
+			status = store.TxStatusInBlockConfirmedOutcoming
+		} else {
+			status = store.TxStatusAppearedInBlockOutcoming
+		}
+	} else {
+		if info.LastIrreversibleBlockNum >= action.BlockNum {
+			status = store.TxStatusInBlockConfirmedIncoming
+		} else {
+			status = store.TxStatusAppearedInBlockIncoming
+		}
+	}
+	if action.Amount.Symbol != "EOS" {
+		return nil, errors.New("non EOS token transaction")
+	}
+	confirmations := int(info.LastIrreversibleBlockNum) - int(action.BlockNum)
+	if confirmations < 0 {
+		confirmations = 0
+	}
+	return &store.TransactionETH{
+		UserID:        action.UserID,
+		AddressIndex:  int(action.AddressIndex),
+		WalletIndex:   int(action.WalletIndex),
+		BlockHeight:   int64(action.BlockNum),
+		To:            action.To,
+		From:          action.From,
+		Status:        status,
+		Confirmations: confirmations,
+		Amount:        assetToString(action.Amount),
+	}, nil
+}
+
 // assetToString presents Asset type as string
 // based on eos-go Asset.String method
 func assetToString(a *proto.Asset) string {
-	strInt := fmt.Sprintf("%d", a.Amount)
-	if len(strInt) < int(a.Precision+1) {
-		// prepend `0` for the difference:
-		strInt = strings.Repeat("0", int(a.Precision+uint32(1))-len(strInt)) + strInt
-	}
-
-	var result string
-	if a.Precision == 0 {
-		result = strInt
-	} else {
-		result = strInt[:len(strInt)-int(a.Precision)] + "." + strInt[len(strInt)-int(a.Precision):]
-	}
-
-	return fmt.Sprintf("%s %s", result, a.Symbol)
+	return fmt.Sprintf("%d", a.Amount)
+	//strInt := fmt.Sprintf("%d", a.Amount)
+	//if len(strInt) < int(a.Precision+1) {
+	//	// prepend `0` for the difference:
+	//	strInt = strings.Repeat("0", int(a.Precision+uint32(1))-len(strInt)) + strInt
+	//}
+	//
+	//var result string
+	//if a.Precision == 0 {
+	//	result = strInt
+	//} else {
+	//	result = strInt[:len(strInt)-int(a.Precision)] + "." + strInt[len(strInt)-int(a.Precision):]
+	//}
+	//
+	//return fmt.Sprintf("%s %s", result, a.Symbol)
 }
 
 // notifyClients notifies clients about new EOS action
@@ -251,8 +286,8 @@ func (conn *Conn) notifyClients(action *proto.Action) error {
 }
 
 // GetActions gets EOS actions for user's wallet from db
-func (conn *Conn) GetActions(userID string, walletIndex, currencyID, networkID int) ([]proto.Action, error) {
-	var actions []proto.Action
+func (conn *Conn) GetActions(userID string, walletIndex, currencyID, networkID int) ([]store.TransactionETH, error) {
+	var actions []store.TransactionETH
 	err := conn.txStore.Find(bson.M{"userid": userID, "walletindex": walletIndex}).All(&actions)
 	if err == mgo.ErrNotFound {
 		log.Errorf("no eos transactions for userid %s", userID)
@@ -263,7 +298,7 @@ func (conn *Conn) GetActions(userID string, walletIndex, currencyID, networkID i
 
 // GetActionHistory gets history for users wallet
 // and checks confirmations
-func (conn *Conn) GetActionHistory(ctx context.Context, userID string, walletIndex, currencyID, networkID int) ([]ActionHistoryRecord, error) {
+func (conn *Conn) GetActionHistory(ctx context.Context, userID string, walletIndex, currencyID, networkID int) ([]store.TransactionETH, error) {
 	state, err := conn.Client.GetChainState(ctx, &proto.Empty{})
 	//TODO: get actions from node (needs to be implemented in eos-go)
 	if err != nil {
@@ -274,23 +309,21 @@ func (conn *Conn) GetActionHistory(ctx context.Context, userID string, walletInd
 		return nil, err
 	}
 
-	history := make([]ActionHistoryRecord, len(actions))
-	for i := range actions {
-		history[i].Action = actions[i]
-		if state.LastIrreversibleBlockNum >= history[i].BlockNum { // action is in irreversible state
-			history[i].Confirmations = 1
-		} else {
-			history[i].Confirmations = 0
+	for _, action := range actions {
+		if int64(state.LastIrreversibleBlockNum) >= action.BlockHeight {
+			if action.Status == store.TxStatusAppearedInBlockIncoming {
+				action.Status = store.TxStatusInBlockConfirmedIncoming
+			}
+			if action.Status == store.TxStatusAppearedInBlockOutcoming {
+				action.Status = store.TxStatusInBlockConfirmedOutcoming
+			}
 		}
+		confirmations := int(state.LastIrreversibleBlockNum) - int(action.BlockHeight)
+		if confirmations < 0 {
+			confirmations = 0
+		}
+		action.Confirmations = confirmations
 	}
 
-	return history, err
-}
-
-// ActionHistoryRecord is a record that is pushed to client
-// it is extended with confirmations data
-type ActionHistoryRecord struct {
-	proto.Action
-
-	Confirmations int `json:"confirmations"`
+	return actions, err
 }
