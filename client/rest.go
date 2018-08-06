@@ -142,7 +142,7 @@ func SetRestHandlers(
 		v1.GET("/account/:currencyid/:networkid/name/:name", restClient.accountCheck)
 		v1.GET("/account/:currencyid/:networkid/key/:public_key", restClient.accountGetByKey)
 		v1.GET("/account/:currencyid/:networkid/price/ram/:ram", restClient.accountPrice)
-		v1.GET("/chain/:currencyid/:networkid/info", restClient.chaininfo)
+		v1.GET("/chain/:currencyid/:networkid/info", restClient.chainInfo)
 
 	}
 	return restClient, nil
@@ -2706,7 +2706,7 @@ func (server *RestClient) accountPrice(ctx *gin.Context) {
 	}
 }
 
-func (server *RestClient) chaininfo(c *gin.Context) {
+func (server *RestClient) chainInfo(c *gin.Context) {
 	currencyID, networkID, err := getChainID(c)
 	if err != nil {
 		server.log.Errorf("decode currency id %s", err)
@@ -2751,9 +2751,9 @@ func (server *RestClient) chaininfo(c *gin.Context) {
 			BlockNumber    uint32 `json:"blockNumber"`
 		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
-			"message": http.StatusText(http.StatusInternalServerError),
+			"message": http.StatusText(http.StatusOK),
 			"state": State{
 				ChainTime:      chainTime,
 				RefBlockPrefix: refBlockPrefix,

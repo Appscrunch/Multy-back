@@ -237,6 +237,7 @@ func (conn *Conn) ActionToHistoryRecord(action *proto.Action) (*store.Transactio
 		Status:        status,
 		Confirmations: confirmations,
 		Amount:        assetToString(action.Amount),
+		BlockTime:     action.BlockTime,
 	}, nil
 }
 
