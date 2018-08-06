@@ -415,6 +415,28 @@ func NewAddressNode(address, userid string, currencyID, networkID, walletIndex, 
 				AddressIndex: int32(addressIndex),
 			}
 		}
+	case currencies.EOS:
+		var conn *eos.Conn
+		switch networkID {
+		case currencies.Main:
+			conn = restClient.EOSMain
+		case currencies.Test:
+			conn = restClient.EOSTest
+		default:
+			return errors.New("wrong network id")
+		}
+		conn.WatchAddresses <- eospb.WatchAddress{
+			Address:address,
+			UserID:userid,
+			WalletIndex:int32(walletIndex),
+			AddressIndex:int32(addressIndex),
+		}
+		_, err := conn.Client.ResyncAddress(context.TODO(), &eospb.AddressToResync{
+			Address:address,
+		})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
