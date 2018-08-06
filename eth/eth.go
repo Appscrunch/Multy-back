@@ -94,7 +94,8 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 
 	cliMain, err := initGrpcClient(urlMain)
 	if err != nil {
-		return cli, fmt.Errorf("initGrpcClient: %s", err.Error())
+		//TODO: Error handle
+		return cli, nil
 	}
 	setGRPCHandlers(cliMain, cli.NsqProducer, currencies.ETHMain, cli.WatchAddressMain, cli.Mempool)
 
@@ -108,7 +109,7 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 	}
 	cliTest, err := initGrpcClient(urlTest)
 	if err != nil {
-		return cli, fmt.Errorf("initGrpcClient: %s", err.Error())
+		return cli, nil //fmt.Errorf("initGrpcClient: %s", err.Error())
 	}
 	setGRPCHandlers(cliTest, cli.NsqProducer, currencies.ETHTest, cli.WatchAddressTest, cli.MempoolTest)
 
@@ -121,7 +122,7 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 func initGrpcClient(url string) (pb.NodeCommuunicationsClient, error) {
 	conn, err := grpc.Dial(url, grpc.WithInsecure())
 	if err != nil {
-		log.Errorf("initGrpcClient: grpc.Dial: %s", err.Error())
+	//	log.Errorf("initGrpcClient: grpc.Dial: %s", err.Error())
 		return nil, err
 	}
 

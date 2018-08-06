@@ -126,7 +126,7 @@ func InitHandlers(dbConf *store.Conf, coinTypes []store.CoinType, nsqAddr string
 func initGrpcClient(url string) (pb.NodeCommuunicationsClient, error) {
 	conn, err := grpc.Dial(url, grpc.WithInsecure())
 	if err != nil {
-		log.Errorf("initGrpcClient: grpc.Dial: %s", err.Error())
+		//log.Errorf("initGrpcClient: grpc.Dial: %s", err.Error())
 		return nil, err
 	}
 
