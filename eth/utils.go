@@ -1,8 +1,8 @@
 /*
-Copyright 2018 Idealnaya rabota LLC
-Licensed under Multy.io license.
-See LICENSE for details
-*/
+ * Copyright 2018 Idealnaya rabota LLC
+ * Licensed under Multy.io license.
+ * See LICENSE for details
+ */
 package eth
 
 import (
@@ -131,7 +131,7 @@ func GetLatestExchangeRate() ([]store.ExchangeRatesRecord, error) {
 	return []store.ExchangeRatesRecord{stocksPoloniex, stocksGdax}, nil
 }
 
-func setExchangeRates(tx *store.TransactionETH, isReSync bool, TxTime int64) {
+func SetExchangeRates(tx *store.TransactionETH, isReSync bool, TxTime int64) {
 	var err error
 	if isReSync {
 		rates, err := GetReSyncExchangeRate(tx.BlockTime)

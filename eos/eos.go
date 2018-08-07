@@ -20,7 +20,8 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"io"
+		"io"
+	"github.com/Multy-io/Multy-back/eth"
 )
 
 var log = slf.WithContext("eos")
@@ -227,7 +228,7 @@ func (conn *Conn) ActionToHistoryRecord(action *proto.Action) (*store.Transactio
 	if confirmations < 0 {
 		confirmations = 0
 	}
-	return &store.TransactionETH{
+	tx := &store.TransactionETH{
 		UserID:        action.UserID,
 		AddressIndex:  int(action.AddressIndex),
 		WalletIndex:   int(action.WalletIndex),
@@ -239,7 +240,11 @@ func (conn *Conn) ActionToHistoryRecord(action *proto.Action) (*store.Transactio
 		Amount:        assetToString(action.Amount),
 		BlockTime:     action.BlockTime,
 		Hash: 		   hex.EncodeToString(action.TransactionId),
-	}, nil
+	}
+
+	eth.SetExchangeRates(tx, action.Resync, action.BlockTime)
+
+	return tx, nil
 }
 
 // assetToString presents Asset type as string

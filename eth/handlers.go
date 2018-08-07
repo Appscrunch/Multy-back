@@ -1,8 +1,8 @@
 /*
-Copyright 2019 Idealnaya rabota LLC
-Licensed under Multy.io license.
-See LICENSE for details
-*/
+ * Copyright 2018 Idealnaya rabota LLC
+ * Licensed under Multy.io license.
+ * See LICENSE for details
+ */
 package eth
 
 import (
@@ -117,7 +117,7 @@ func setGRPCHandlers(cli pb.NodeCommuunicationsClient, nsqProducer *nsq.Producer
 				log.Errorf("initGrpcClient: cli.NewTx:stream.Recv: %s", err.Error())
 			}
 			tx := generatedTxDataToStore(gTx)
-			setExchangeRates(&tx, gTx.Resync, tx.BlockTime)
+			SetExchangeRates(&tx, gTx.Resync, tx.BlockTime)
 
 			err = saveTransaction(tx, networtkID, gTx.Resync)
 			updateWalletAndAddressDate(tx, networtkID)
