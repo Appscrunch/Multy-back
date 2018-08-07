@@ -39,7 +39,7 @@ type Conn struct {
 }
 
 // NewConn creates all the connections
-func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string, txTable string) (*Conn, error) {
+func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string, txTable string, networkID int) (*Conn, error) {
 	config := nsq.NewConfig()
 	producer, err := nsq.NewProducer(nsqAddress, config)
 	if err != nil {
@@ -67,7 +67,7 @@ func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string, txTable stri
 		restoreState:   dbConn.DB(dbConf.DBRestoreState).C(dbConf.TableState),
 		txStore:        dbConn.DB(dbConf.DBTx).C(txTable),
 		nsq:            producer,
-		networkID:      currencies.Main,
+		networkID:      networkID,
 	}
 
 	conn.runAsyncHandlers()
@@ -238,6 +238,7 @@ func (conn *Conn) ActionToHistoryRecord(action *proto.Action) (*store.Transactio
 		Confirmations: confirmations,
 		Amount:        assetToString(action.Amount),
 		BlockTime:     action.BlockTime,
+		Hash: 		   hex.EncodeToString(action.TransactionId),
 	}, nil
 }
 

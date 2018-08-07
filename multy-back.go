@@ -105,7 +105,7 @@ func Init(conf *Configuration) (*Multy, error) {
 			default:
 				return nil, fmt.Errorf("unknown eos network id: %d", node.NetworkID)
 			}
-			eosConn, err := eos.NewConn(&conf.Database, node.GRPCUrl, conf.NSQAddress, txTable)
+			eosConn, err := eos.NewConn(&conf.Database, node.GRPCUrl, conf.NSQAddress, txTable, node.NetworkID)
 			if err != nil {
 				return nil, fmt.Errorf("eos new connection: %s")
 			}
