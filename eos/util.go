@@ -9,10 +9,11 @@ package eos
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/Multy-io/Multy-EOS-node-service/proto"
 	"github.com/Multy-io/Multy-back/store"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 type Wallet struct {

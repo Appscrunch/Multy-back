@@ -10,8 +10,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/Multy-io/Multy-EOS-node-service/proto"
 	"github.com/Multy-io/Multy-back/currencies"
+	"github.com/Multy-io/Multy-back/eth"
 	"github.com/Multy-io/Multy-back/store"
 	"github.com/bitly/go-nsq"
 	"github.com/gin-gonic/gin/json"
@@ -20,8 +24,6 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-		"io"
-	"github.com/Multy-io/Multy-back/eth"
 )
 
 var log = slf.WithContext("eos")
@@ -37,6 +39,7 @@ type Conn struct {
 
 	restoreState *mgo.Collection
 	txStore      *mgo.Collection
+	exRate       *mgo.Collection
 }
 
 // NewConn creates all the connections
@@ -67,6 +70,7 @@ func NewConn(dbConf *store.Conf, grpcUrl string, nsqAddress string, txTable stri
 		WatchAddresses: make(chan proto.WatchAddress),
 		restoreState:   dbConn.DB(dbConf.DBRestoreState).C(dbConf.TableState),
 		txStore:        dbConn.DB(dbConf.DBTx).C(txTable),
+		exRate:         dbConn.DB(dbConf.DBStockExchangeRate).C("TableStockExchangeRate"),
 		nsq:            producer,
 		networkID:      networkID,
 	}
@@ -228,6 +232,14 @@ func (conn *Conn) ActionToHistoryRecord(action *proto.Action) (*store.Transactio
 	if confirmations < 0 {
 		confirmations = 0
 	}
+
+	selBitfinex := bson.M{
+		"stockexchange": "Bitfinex",
+	}
+
+	stocksBitfinex := store.ExchangeRatesRecord{}
+	err = conn.exRate.Find(selBitfinex).Sort("-timestamp").One(&stocksBitfinex)
+
 	tx := &store.TransactionETH{
 		UserID:        action.UserID,
 		AddressIndex:  int(action.AddressIndex),
@@ -239,7 +251,14 @@ func (conn *Conn) ActionToHistoryRecord(action *proto.Action) (*store.Transactio
 		Confirmations: confirmations,
 		Amount:        assetToString(action.Amount),
 		BlockTime:     action.BlockTime,
-		Hash: 		   hex.EncodeToString(action.TransactionId),
+		Hash:          hex.EncodeToString(action.TransactionId),
+		StockExchangeRate: []store.ExchangeRatesRecord{
+			store.ExchangeRatesRecord{
+				Timestamp:     time.Now().Unix(),
+				StockExchange: "Bitfinex",
+				Exchanges:     stocksBitfinex.Exchanges,
+			},
+		},
 	}
 
 	eth.SetExchangeRates(tx, action.Resync, action.BlockTime)
