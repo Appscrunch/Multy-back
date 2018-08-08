@@ -15,7 +15,6 @@ import (
 
 	"github.com/Multy-io/Multy-EOS-node-service/proto"
 	"github.com/Multy-io/Multy-back/currencies"
-	"github.com/Multy-io/Multy-back/eth"
 	"github.com/Multy-io/Multy-back/store"
 	"github.com/bitly/go-nsq"
 	"github.com/gin-gonic/gin/json"
@@ -261,7 +260,7 @@ func (conn *Conn) ActionToHistoryRecord(action *proto.Action) (*store.Transactio
 		},
 	}
 
-	eth.SetExchangeRates(tx, action.Resync, action.BlockTime)
+	// eth.SetExchangeRates(tx, action.Resync, action.BlockTime)
 
 	return tx, nil
 }
