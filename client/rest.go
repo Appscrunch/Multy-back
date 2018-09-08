@@ -29,6 +29,12 @@ import (
 	ethpb "github.com/Multy-io/Multy-back/node-streamer/eth"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/gin-gonic/gin"
+
+	_ "github.com/Multy-io/Multy-back/docs"
+
+	"github.com/swaggo/gin-swagger"
+	"github.com/swaggo/gin-swagger/swaggerFiles"
+
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -107,6 +113,8 @@ func SetRestHandlers(
 	r.GET("/server/config", restClient.getServerConfig())
 
 	r.GET("/donations", restClient.donations())
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	v1 := r.Group("/api/v1")
 	v1.Use(restClient.middlewareJWT.MiddlewareFunc())

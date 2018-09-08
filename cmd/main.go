@@ -6,6 +6,7 @@ See LICENSE for details
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -60,9 +61,17 @@ func main() {
 	log.Infof("build time: %s", buildtime)
 	log.Infof("tag: %s", lasttag)
 
-	var gracefulStop = make(chan os.Signal)
+	gracefulStop := make(chan os.Signal)
 
-	signal.Notify(gracefulStop, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
+	signal.Notify(gracefulStop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-gracefulStop
+		fmt.Println("")
+		log.Infof("Got shutting down signal")
+		log.Infof("Shutting down")
+		os.Exit(1)
+	}()
 
 	sc := store.ServerConfig{
 		BranchName: branch,
