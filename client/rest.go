@@ -663,11 +663,15 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 			return
 		}
 
-		var multisigAddress string
 		walletIndex, err := strconv.Atoi(c.Param("walletindex"))
 		restClient.log.Debugf("getWalletVerbose [%d] \t[walletindexr=%s]", walletIndex, c.Request.RemoteAddr)
 		if err != nil {
-			multisigAddress = c.Param("walletindex")
+			restClient.log.Errorf("getWalletVerbose: non int wallet index:[%d] %s \t[addr=%s]", walletIndex, err.Error(), c.Request.RemoteAddr)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    http.StatusBadRequest,
+				"message": msgErrDecodeWalletIndexErr,
+			})
+			return
 		}
 
 		currencyId, err := strconv.Atoi(c.Param("currencyid"))
@@ -735,7 +739,7 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 			}
 
 			if totalBalance == 0 {
-				err := restClient.userStore.DeleteWallet(user.UserID, "", walletIndex, currencyId, networkid)
+				err := restClient.userStore.DeleteWallet(user.UserID, walletIndex, currencyId, networkid)
 				if err != nil {
 					restClient.log.Errorf("deleteWallet: restClient.userStore.Update: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
 					c.JSON(http.StatusBadRequest, gin.H{
@@ -760,18 +764,10 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 		case currencies.Ether:
 
 			var address string
-			// delete multisig
-			if multisigAddress != "" {
-				address = multisigAddress
-			}
-			// delete wallwt
-			if multisigAddress != "" {
-
-				for _, wallet := range user.Wallets {
-					if wallet.WalletIndex == walletIndex {
-						if len(wallet.Adresses) > 0 {
-							address = wallet.Adresses[0].Address
-						}
+			for _, wallet := range user.Wallets {
+				if wallet.WalletIndex == walletIndex {
+					if len(wallet.Adresses) > 0 {
+						address = wallet.Adresses[0].Address
 					}
 				}
 			}
@@ -789,7 +785,7 @@ func (restClient *RestClient) deleteWallet() gin.HandlerFunc {
 			}
 
 			if balance.Balance == "0" || balance.Balance == "" {
-				err := restClient.userStore.DeleteWallet(user.UserID, address, walletIndex, currencyId, networkid)
+				err := restClient.userStore.DeleteWallet(user.UserID, walletIndex, currencyId, networkid)
 				if err != nil {
 					restClient.log.Errorf("deleteWallet: restClient.userStore.Update: %s\t[addr=%s]", err.Error(), c.Request.RemoteAddr)
 					c.JSON(http.StatusBadRequest, gin.H{
@@ -1520,50 +1516,56 @@ func (restClient *RestClient) getWalletVerbose() gin.HandlerFunc {
 					return
 				}
 
-				amount := &ethpb.Balance{}
-				nonce := &ethpb.Nonce{}
+				totalBalance = "0"
+				pendingBalance = "0"
 
-				var err error
-				adr := ethpb.AddressToResync{
-					Address: multisig.ContractAddress,
+				if multisig.ContractAddress != "" {
+					amount := &ethpb.Balance{}
+					nonce := &ethpb.Nonce{}
+
+					var err error
+					adr := ethpb.AddressToResync{
+						Address: multisig.ContractAddress,
+					}
+
+					switch networkId {
+					case currencies.ETHTest:
+						nonce, err = restClient.ETH.CliTest.EventGetAdressNonce(context.Background(), &adr)
+						amount, err = restClient.ETH.CliTest.EventGetAdressBalance(context.Background(), &adr)
+					case currencies.ETHMain:
+						nonce, err = restClient.ETH.CliMain.EventGetAdressNonce(context.Background(), &adr)
+						amount, err = restClient.ETH.CliMain.EventGetAdressBalance(context.Background(), &adr)
+					default:
+						c.JSON(code, gin.H{
+							"code":    http.StatusBadRequest,
+							"message": msgErrMethodNotImplennted,
+							"wallet":  wv,
+						})
+						return
+					}
+
+					if err != nil {
+						restClient.log.Errorf("EventGetAdressNonce || EventGetAdressBalance: %v", err.Error())
+					}
+
+					totalBalance = amount.GetBalance()
+					pendingBalance = amount.GetPendingBalance()
+
+					p, _ := strconv.Atoi(amount.GetPendingBalance())
+					b, _ := strconv.Atoi(amount.GetBalance())
+
+					if p != b {
+						pending = true
+						multisig.LastActionTime = time.Now().Unix()
+					}
+
+					if p == b {
+						pendingBalance = "0"
+					}
+
+					waletNonce = nonce.GetNonce()
+
 				}
-
-				switch networkId {
-				case currencies.ETHTest:
-					nonce, err = restClient.ETH.CliTest.EventGetAdressNonce(context.Background(), &adr)
-					amount, err = restClient.ETH.CliTest.EventGetAdressBalance(context.Background(), &adr)
-				case currencies.ETHMain:
-					nonce, err = restClient.ETH.CliMain.EventGetAdressNonce(context.Background(), &adr)
-					amount, err = restClient.ETH.CliMain.EventGetAdressBalance(context.Background(), &adr)
-				default:
-					c.JSON(code, gin.H{
-						"code":    http.StatusBadRequest,
-						"message": msgErrMethodNotImplennted,
-						"wallet":  wv,
-					})
-					return
-				}
-
-				if err != nil {
-					restClient.log.Errorf("EventGetAdressNonce || EventGetAdressBalance: %v", err.Error())
-				}
-
-				totalBalance = amount.GetBalance()
-				pendingBalance = amount.GetPendingBalance()
-
-				p, _ := strconv.Atoi(amount.GetPendingBalance())
-				b, _ := strconv.Atoi(amount.GetBalance())
-
-				if p != b {
-					pending = true
-					multisig.LastActionTime = time.Now().Unix()
-				}
-
-				if p == b {
-					pendingBalance = "0"
-				}
-
-				waletNonce = nonce.GetNonce()
 
 				av = append(av, ETHAddressVerbose{
 					LastActionTime: multisig.LastActionTime,
@@ -1969,7 +1971,8 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 			var pending bool
 
 			var totalBalance string = "0"
-			var pendingBalance string
+			var pendingBalance string = "0"
+			var waletNonce int64 = 0
 
 			amount := &ethpb.Balance{}
 			nonce := &ethpb.Nonce{}
@@ -1977,39 +1980,40 @@ func (restClient *RestClient) getAllWalletsVerbose() gin.HandlerFunc {
 			adr := ethpb.AddressToResync{
 				Address: multisig.ContractAddress,
 			}
+			if multisig.ContractAddress != "" {
+				switch multisig.NetworkID {
+				case currencies.ETHTest:
+					nonce, err = restClient.ETH.CliTest.EventGetAdressNonce(context.Background(), &adr)
+					amount, err = restClient.ETH.CliTest.EventGetAdressBalance(context.Background(), &adr)
+				case currencies.ETHMain:
+					nonce, err = restClient.ETH.CliMain.EventGetAdressNonce(context.Background(), &adr)
+					amount, err = restClient.ETH.CliMain.EventGetAdressBalance(context.Background(), &adr)
+				default:
+					c.JSON(code, gin.H{
+						"code":    http.StatusBadRequest,
+						"message": msgErrMethodNotImplennted,
+						"wallet":  wv,
+					})
+					return
+				}
 
-			switch multisig.NetworkID {
-			case currencies.ETHTest:
-				nonce, err = restClient.ETH.CliTest.EventGetAdressNonce(context.Background(), &adr)
-				amount, err = restClient.ETH.CliTest.EventGetAdressBalance(context.Background(), &adr)
-			case currencies.ETHMain:
-				nonce, err = restClient.ETH.CliMain.EventGetAdressNonce(context.Background(), &adr)
-				amount, err = restClient.ETH.CliMain.EventGetAdressBalance(context.Background(), &adr)
-			default:
-				c.JSON(code, gin.H{
-					"code":    http.StatusBadRequest,
-					"message": msgErrMethodNotImplennted,
-					"wallet":  wv,
-				})
-				return
+				totalBalance = amount.GetBalance()
+				pendingBalance = amount.GetPendingBalance()
+
+				p, _ := strconv.Atoi(amount.GetPendingBalance())
+				b, _ := strconv.Atoi(amount.GetBalance())
+
+				if p != b {
+					pending = true
+					multisig.LastActionTime = time.Now().Unix()
+				}
+
+				if p == b {
+					pendingBalance = "0"
+				}
+
+				waletNonce = nonce.GetNonce()
 			}
-
-			totalBalance = amount.GetBalance()
-			pendingBalance = amount.GetPendingBalance()
-
-			p, _ := strconv.Atoi(amount.GetPendingBalance())
-			b, _ := strconv.Atoi(amount.GetBalance())
-
-			if p != b {
-				pending = true
-				multisig.LastActionTime = time.Now().Unix()
-			}
-
-			if p == b {
-				pendingBalance = "0"
-			}
-
-			waletNonce := nonce.GetNonce()
 
 			av = append(av, ETHAddressVerbose{
 				LastActionTime: multisig.LastActionTime,
