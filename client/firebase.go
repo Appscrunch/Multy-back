@@ -48,6 +48,7 @@ type FirebaseClient struct {
 }
 
 func InitFirebaseConn(conf *FirebaseConf, c *gin.Engine, nsqAddr string) (*FirebaseClient, error) {
+	time.Sleep(300 * time.Millisecond)
 	fClient := &FirebaseClient{
 		conf: conf,
 		// client:    fcm.NewFcmClient(conf.ServerKey),
