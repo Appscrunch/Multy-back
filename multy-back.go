@@ -67,6 +67,8 @@ func Init(conf *Configuration) (*Multy, error) {
 		config:           conf,
 		ExchangerFactory: &exchanger.FactoryExchanger{},
 	}
+
+	log.Infof("Connecting to DB: %s", conf.Database.Address)
 	// DB initialization
 	userStore, err := store.InitUserStore(conf.Database)
 	if err != nil {
